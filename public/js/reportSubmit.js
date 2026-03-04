@@ -1,4 +1,4 @@
-import supabase from './supabase.js';
+import supabase, { ensureSupabase } from './supabase.js';
 
 // grab DOM elements once the document is ready
 const reportForm = document.getElementById('reportForm');
@@ -81,8 +81,14 @@ reportForm.addEventListener('submit', async e => {
     e.preventDefault();
     clearMessages();
 
+    const sb = await ensureSupabase();
+    if (!sb) {
+        showError('Service unavailable');
+        return;
+    }
+
     // make sure a user is logged in
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sb.auth.getSession();
     if (!session || !session.user) {
         showError('You must be logged in to submit a report.');
         return;
@@ -114,7 +120,7 @@ reportForm.addEventListener('submit', async e => {
                 }
 
                 const filePath = `${session.user.id}/${Date.now()}_${makeId()}_${file.name}`;
-                const { data: uploadData, error: uploadError } = await supabase
+                const { data: uploadData, error: uploadError } = await sb
                     .storage
                     .from('evidence')
                     .upload(filePath, file);
@@ -125,7 +131,7 @@ reportForm.addEventListener('submit', async e => {
             payload.evidence_url = JSON.stringify(evidencePaths);
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await sb
             .from('reports')
             .insert([payload]);
 

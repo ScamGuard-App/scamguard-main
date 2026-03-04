@@ -1,4 +1,5 @@
-import supabase from './supabase.js';
+import supabase, { ensureSupabase } from './supabase.js';
+import { escapeHtml } from './utils.js';
 
 let allReports = [];
 let usernameCache = {};
@@ -20,7 +21,13 @@ function setupEventListeners() {
 
 async function loadReports() {
     try {
-        const { data, error } = await supabase
+        const sb = await ensureSupabase();
+        if (!sb) {
+            showNoResults('Failed to connect to database');
+            return;
+        }
+
+        const { data, error } = await sb
             .from('reports')
             .select('*')
             .order('created_at', { ascending: false });
@@ -35,7 +42,7 @@ async function loadReports() {
         
         // Pre-fetch usernames
         const userIds = [...new Set(allReports.map(r => r.user_id))];
-        await fetchUsernames(userIds);
+        await fetchUsernames(userIds, sb);
         
         performSearch();
     } catch (err) {
@@ -44,9 +51,9 @@ async function loadReports() {
     }
 }
 
-async function fetchUsernames(userIds) {
+async function fetchUsernames(userIds, sb) {
     try {
-        const { data, error } = await supabase.auth.admin.listUsers();
+        const { data, error } = await sb.auth.admin.listUsers();
         
         if (error) {
             console.warn('Could not fetch usernames (non-admin context):', error);
@@ -321,12 +328,6 @@ function resetAndReload() {
     document.getElementById('searchInput').value = '';
     document.getElementById('typeFilter').value = '';
     performSearch();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function escapeAttr(text) {

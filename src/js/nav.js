@@ -1,4 +1,4 @@
-import supabase from './supabase.js';
+import supabase, { ensureSupabase } from './supabase.js';
 
 // ensure navigation links reflect auth state
 export async function updateNav() {
@@ -7,7 +7,15 @@ export async function updateNav() {
     if (window.__navUpdateLock) return;
     window.__navUpdateLock = true;
     try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Ensure supabase is initialized
+        const sb = await ensureSupabase();
+        if (!sb) {
+            console.warn('Supabase client not available');
+            window.__navUpdateLock = false;
+            return;
+        }
+
+        const { data: { session } } = await sb.auth.getSession();
     const linksDiv = document.querySelector('nav .links');
     const navEl = document.querySelector('nav');
     if (!linksDiv || !navEl) return;
@@ -59,10 +67,22 @@ export async function updateNav() {
         // logged in: show sign‑out button/link after account
         // remove any static account link from the left links to avoid duplication
         if (accountLink) accountLink.remove();
-
+            // if admin flag present, add admin link to left
+            if (profile?.is_admin) {
+                let adminLink = linksDiv.querySelector('a[href="admin.html"]');
+                if (!adminLink) {
+                    adminLink = document.createElement('a');
+                    adminLink.href = 'admin.html';
+                    adminLink.className = 'nav-link';
+                    adminLink.textContent = 'Admin';
+                    adminLink.setAttribute('data-generated','true');
+                    // insert at start of linksDiv
+                    linksDiv.prepend(adminLink);
+                }
+            }
         // fetch profile for avatar/username and populate userArea
         try {
-            const { data: profile } = await supabase.from('profiles').select('username, avatar_url').eq('id', session.user.id).maybeSingle();
+            const { data: profile } = await sb.from('profiles').select('username, avatar_url, is_admin').eq('id', session.user.id).maybeSingle();
             const displayName = profile?.username || session.user.user_metadata?.username || (session.user.email ? session.user.email.split('@')[0] : 'Account');
             const avatarPath = profile?.avatar_url;
 
@@ -77,10 +97,10 @@ export async function updateNav() {
 
             if (avatarPath) {
                 try {
-                    const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(avatarPath, 3600);
+                    const { data: signed, error } = await sb.storage.from('avatars').createSignedUrl(avatarPath, 3600);
                     if (!error && signed?.signedUrl) avatarImg.src = signed.signedUrl;
                     else {
-                        const { data: pub } = supabase.storage.from('avatars').getPublicUrl(avatarPath);
+                        const { data: pub } = sb.storage.from('avatars').getPublicUrl(avatarPath);
                         avatarImg.src = pub.publicUrl || avatarImg.src;
                     }
                 } catch (e) {
@@ -104,7 +124,7 @@ export async function updateNav() {
             signOutLink.style.marginLeft = '10px';
             signOutLink.addEventListener('click', async e => {
                 e.preventDefault();
-                await supabase.auth.signOut();
+                await sb.auth.signOut();
                 window.location.href = 'index.html';
             });
 
@@ -119,7 +139,7 @@ export async function updateNav() {
             signOutLink.id = 'signOutLink';
             signOutLink.className = 'nav-link';
             signOutLink.textContent = 'Sign Out';
-            signOutLink.addEventListener('click', async ev => { ev.preventDefault(); await supabase.auth.signOut(); window.location.href = 'index.html'; });
+            signOutLink.addEventListener('click', async ev => { ev.preventDefault(); await sb.auth.signOut(); window.location.href = 'index.html'; });
             userArea.appendChild(signOutLink);
         }
         markActive();
@@ -143,9 +163,14 @@ export async function updateNav() {
 }
 
 // keep nav reactive when auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
-    updateNav();
-});
+(async () => {
+    const sb = await ensureSupabase();
+    if (sb) {
+        sb.auth.onAuthStateChange((event, session) => {
+            updateNav();
+        });
+    }
+})();
 
 // run on page load
 document.addEventListener('DOMContentLoaded', updateNav);

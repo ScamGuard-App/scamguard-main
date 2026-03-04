@@ -9,14 +9,14 @@
   - added animations and glow effects
 */
 :root {
-    --accent: #c41c3b;
+    --accent: #60aedb;
     --text-primary: #e5e7eb;
     --text-secondary: #9ca3af;
-    --bg-gradient: linear-gradient(135deg, #171717 0%, #0f0f0f 100%);
-    --glass-bg: rgba(255, 255, 255, 0.08);
+    --bg-gradient: linear-gradient(135deg, #252525 25%, #181818 60%, #0a0a0a 100%);
+    --glass-bg: rgba(80, 69, 69, 0.08);
     --glass-border: rgba(255, 255, 255, 0.18);
     --shadow: rgba(0, 0, 0, 0.4);
-    --glow-color: rgba(196,28,59,0.6);
+    --glow-color: rgba(78, 28, 196, 0.6);
 }
 
 /* keyframes for generic animations */
@@ -167,9 +167,10 @@ nav .logo { margin-right: 12px; }
 }
 
 .card .stat {
-    font-size: 2.2rem;
+    font-size: 3rem; /* larger for visibility */
     font-weight: 700;
     color: var(--text-primary);
+    line-height: 1.1;
 }
 
 /* recent scams section */

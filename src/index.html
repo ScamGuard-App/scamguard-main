@@ -25,90 +25,30 @@
         <section class="grid">
             <div class="card">
                 <h3>Total Reports</h3>
-                <p class="stat">1,248</p>
+                <p class="stat">Loading...</p>
             </div>
             <div class="card">
                 <h3>Top Scam Type</h3>
-                <p class="stat">Phishing</p>
+                <p class="stat">Loading...</p>
+            </div>
+            <div class="card" style="grid-column: 1 / -1;">
+                <h3>Scam Types Breakdown</h3>
+                <canvas id="typeChart" style="width:100%;max-height:300px;"></canvas>
             </div>
         </section>
 
         <section class="recent-scams">
-            <h2>Recently Reported Scams</h2>
+            <h2>Recently Reported Scams <button id="searchRedirect" class="btn" style="margin-left:1rem; font-size:0.8rem;">Search</button></h2>
             <div class="scam-grid">
-                <div class="scam-card">
-                    <div class="scam-header">
-                        <h3>John Smith</h3>
-                        <span class="report-date">2 hours ago</span>
-                    </div>
-                    <div class="scam-details">
-                        <div class="detail-row">
-                            <span class="label">Contact Info:</span>
-                            <span class="value">+1 (555) 123-4567</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Scam Type:</span>
-                            <span class="value">Tech Support Fraud</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="scam-card">
-                    <div class="scam-header">
-                        <h3>Jane Doe</h3>
-                        <span class="report-date">4 hours ago</span>
-                    </div>
-                    <div class="scam-details">
-                        <div class="detail-row">
-                            <span class="label">Contact Info:</span>
-                            <span class="value">jane.doe@scammail.com</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Scam Type:</span>
-                            <span class="value">Romance Scam</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="scam-card">
-                    <div class="scam-header">
-                        <h3>Mike Chen</h3>
-                        <span class="report-date">6 hours ago</span>
-                    </div>
-                    <div class="scam-details">
-                        <div class="detail-row">
-                            <span class="label">Contact Info:</span>
-                            <span class="value">www.fake-amazon-login.xyz</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Scam Type:</span>
-                            <span class="value">Phishing</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="scam-card">
-                    <div class="scam-header">
-                        <h3>Alex Rivera</h3>
-                        <span class="report-date">8 hours ago</span>
-                    </div>
-                    <div class="scam-details">
-                        <div class="detail-row">
-                            <span class="label">Contact Info:</span>
-                            <span class="value">bitcoin-wallet-0x123...ab</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Scam Type:</span>
-                            <span class="value">Cryptocurrency Fraud</span>
-                        </div>
-                    </div>
-                </div>
+                <p style="grid-column: 1/-1; text-align: center; color: #9ca3af;">Loading reports...</p>
             </div>
         </section>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/supabase.js"></script>
+    <script type="module" src="js/homepage.js"></script>
     <script type="module" src="js/nav.js"></script>
 </body>
 </html>

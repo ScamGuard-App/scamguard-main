@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Admin Panel - Scamguard</title>
+</head>
+<body>
+    <nav>
+        <div class="logo">
+            <i class="fas fa-exclamation-circle" style="color: #c41c3b;"></i>
+        </div>
+        <div class="links">
+            <a href="index.html" class="nav-link">Home</a>
+            <a href="reports.html" class="nav-link">Search</a>
+            <a href="learn.html" class="nav-link">Learn</a>
+            <a href="report.html" class="nav-link">Submit Report</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <h1>Admin Panel</h1>
+        <div id="adminAlert" class="auth-error" style="margin-bottom:1rem; display:none;"></div>
+        <section id="adminReportsSection" class="recent-scams">
+            <div id="adminReportsContainer" class="scam-grid">
+                <p style="grid-column:1/-1; text-align:center;">Loading...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/supabase.js"></script>
+    <script type="module" src="js/nav.js"></script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>
