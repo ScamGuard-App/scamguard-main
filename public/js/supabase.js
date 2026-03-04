@@ -1,7 +1,5 @@
 /*
-  WARNING: This file must NOT contain secret keys in version control.
-  Copy `supabase.example.js` to `js/supabase.js` and fill in your
-  `SUPABASE_URL` and `SUPABASE_ANON_KEY` locally before running.
+  Fill in your `SUPABASE_URL` and `SUPABASE_ANON_KEY` locally before running.
 */
 
 const SUPABASE_URL = "https://xqxffysambxngnqjzfwt.supabase.co";
