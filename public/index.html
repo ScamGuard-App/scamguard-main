@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Scamguard</title>
+</head>
+<body>
+    
+    <nav>
+        <div class="logo">
+            <i class="fas fa-exclamation-circle" style="color: #c41c3b;"></i>
+        </div>
+        <div class="links">
+            <a href="index.html" class="active nav-link">Home</a>
+            <a href="reports.html" class="nav-link">Search</a>
+            <a href="learn.html" class="nav-link">Learn</a>
+            <a href="report.html" class="nav-link">Submit Report</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <section class="grid">
+            <div class="card">
+                <h3>Total Reports</h3>
+                <p class="stat">1,248</p>
+            </div>
+            <div class="card">
+                <h3>Top Scam Type</h3>
+                <p class="stat">Phishing</p>
+            </div>
+        </section>
+
+        <section class="recent-scams">
+            <h2>Recently Reported Scams</h2>
+            <div class="scam-grid">
+                <div class="scam-card">
+                    <div class="scam-header">
+                        <h3>John Smith</h3>
+                        <span class="report-date">2 hours ago</span>
+                    </div>
+                    <div class="scam-details">
+                        <div class="detail-row">
+                            <span class="label">Contact Info:</span>
+                            <span class="value">+1 (555) 123-4567</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Scam Type:</span>
+                            <span class="value">Tech Support Fraud</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="scam-card">
+                    <div class="scam-header">
+                        <h3>Jane Doe</h3>
+                        <span class="report-date">4 hours ago</span>
+                    </div>
+                    <div class="scam-details">
+                        <div class="detail-row">
+                            <span class="label">Contact Info:</span>
+                            <span class="value">jane.doe@scammail.com</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Scam Type:</span>
+                            <span class="value">Romance Scam</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="scam-card">
+                    <div class="scam-header">
+                        <h3>Mike Chen</h3>
+                        <span class="report-date">6 hours ago</span>
+                    </div>
+                    <div class="scam-details">
+                        <div class="detail-row">
+                            <span class="label">Contact Info:</span>
+                            <span class="value">www.fake-amazon-login.xyz</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Scam Type:</span>
+                            <span class="value">Phishing</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="scam-card">
+                    <div class="scam-header">
+                        <h3>Alex Rivera</h3>
+                        <span class="report-date">8 hours ago</span>
+                    </div>
+                    <div class="scam-details">
+                        <div class="detail-row">
+                            <span class="label">Contact Info:</span>
+                            <span class="value">bitcoin-wallet-0x123...ab</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Scam Type:</span>
+                            <span class="value">Cryptocurrency Fraud</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/supabase.js"></script>
+    <script type="module" src="js/nav.js"></script>
+</body>
+</html>
