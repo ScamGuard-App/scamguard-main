@@ -44,6 +44,9 @@ async function loadReports() {
         const userIds = [...new Set(allReports.map(r => r.user_id))];
         await fetchUsernames(userIds, sb);
         
+        // Fetch AI analysis for all reports
+        await fetchAIAnalysis(allReports, sb);
+        
         performSearch();
     } catch (err) {
         console.error('Error:', err);
@@ -51,26 +54,62 @@ async function loadReports() {
     }
 }
 
-async function fetchUsernames(userIds, sb) {
+async function fetchAIAnalysis(reports, sb) {
     try {
-        const { data, error } = await sb.auth.admin.listUsers();
+        if (reports.length === 0) return;
         
+        const reportIds = reports.map(r => r.report_id);
+        console.log('[Reports] Fetching AI analysis for report IDs:', reportIds);
+        
+        const { data, error } = await sb
+            .from('ai_analysis')
+            .select('*')
+            .in('report_id', reportIds);
+
         if (error) {
-            console.warn('Could not fetch usernames (non-admin context):', error);
-            // Fallback: use user_id as display name
-            userIds.forEach(id => {
-                usernameCache[id] = id.substring(0, 8) + '...';
-            });
+            console.warn('[Reports] Could not fetch AI analysis:', error);
             return;
         }
 
-        data?.users?.forEach(user => {
-            usernameCache[user.id] = user.user_metadata?.username || user.email?.split('@')[0] || 'Anonymous';
+        console.log('[Reports] AI analysis data fetched:', data);
+
+        // Create a map of report_id -> analysis for quick lookup
+        const analysisMap = {};
+        data?.forEach(analysis => {
+            analysisMap[analysis.report_id] = analysis;
+        });
+
+        // Attach analysis to each report
+        reports.forEach(report => {
+            report.aiAnalysis = analysisMap[report.report_id] || null;
         });
     } catch (err) {
+        console.warn('[Reports] Error fetching AI analysis:', err);
+    }
+}
+
+async function fetchUsernames(userIds, sb) {
+    try {
+        // Try to get user info from public profiles table if it exists
+        const { data, error } = await sb
+            .from('profiles')
+            .select('id, username')
+            .in('id', userIds);
+        
+        if (error) {
+            throw error;
+        }
+
+        if (data) {
+            data.forEach(user => {
+                usernameCache[user.id] = user.username || 'Anonymous';
+            });
+        }
+    } catch (err) {
         console.warn('Could not fetch usernames:', err);
+        // Fallback: use truncated user_id as display name
         userIds.forEach(id => {
-            usernameCache[id] = 'Anonymous';
+            usernameCache[id] = 'User ' + id.substring(0, 8);
         });
     }
 }
@@ -146,7 +185,7 @@ function renderResults(results) {
     const tableBody = document.getElementById('tableBody');
 
     if (results.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">No reports found. Try adjusting your search.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #9ca3af;">No reports found. Try adjusting your search.</td></tr>';
         return;
     }
 
@@ -158,11 +197,16 @@ function renderResults(results) {
         });
         const username = usernameCache[report.user_id] || 'Anonymous';
         const hasEvidence = report.evidence_url && (typeof report.evidence_url === 'string' || Object.keys(report.evidence_url || {}).length > 0);
+        const riskLevel = getRiskLevel(report.aiAnalysis?.risk_score);
+        const riskBadge = report.aiAnalysis?.risk_score !== null && report.aiAnalysis?.risk_score !== undefined
+            ? `<span class="risk-badge" style="background-color: ${riskLevel.color}; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold;">${riskLevel.emoji} ${report.aiAnalysis.risk_score}</span>`
+            : '<span style="color: #9ca3af; font-size: 12px;">⏳ Pending</span>';
 
         return `
             <tr style="cursor: pointer;" onclick="openReportModal('${escapeAttr(report.report_id)}')">
                 <td style="max-width: 200px; word-break: break-word;">${escapeHtml(report.title || 'N/A')}</td>
                 <td><span style="background: rgba(196, 28, 59, 0.3); padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px;">${escapeHtml(report.type || 'Other')}</span></td>
+                <td>${riskBadge}</td>
                 <td>${escapeHtml(report.scammer_name || 'N/A')}</td>
                 <td>${escapeHtml(username)}</td>
                 <td>${date}</td>
@@ -172,6 +216,15 @@ function renderResults(results) {
             </tr>
         `;
     }).join('');
+}
+
+function getRiskLevel(score) {
+    if (score === null || score === undefined) return { color: '#9ca3af', label: 'Pending', emoji: '⏳' };
+    if (score >= 80) return { color: '#dc2626', label: 'Critical', emoji: '🔴' };
+    if (score >= 60) return { color: '#f97316', label: 'High', emoji: '🟠' };
+    if (score >= 40) return { color: '#eab308', label: 'Moderate', emoji: '🟡' };
+    if (score >= 20) return { color: '#3b82f6', label: 'Low', emoji: '🔵' };
+    return { color: '#16a34a', label: 'Safe', emoji: '🟢' };
 }
 
 window.openReportModal = function(reportId) {
@@ -215,6 +268,83 @@ window.openReportModal = function(reportId) {
         phoneEl.textContent = `Phone: ${escapeHtml(report.phone?.toString() || 'N/A')}`;
     } else {
         phoneEl.textContent = 'Phone: Not provided';
+    }
+
+    // Handle AI Analysis
+    const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+    if (report.aiAnalysis && report.aiAnalysis.risk_score !== null && report.aiAnalysis.risk_score !== undefined) {
+        const analysis = report.aiAnalysis.analysis_json || {};
+        const riskLevel = getRiskLevel(report.aiAnalysis.risk_score);
+        const redFlags = analysis.red_flags || [];
+        const recommendations = analysis.recommendations || [];
+        const confidence = analysis.confidence || null;
+
+        let aiHTML = `<h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: #2c3e50;">AI Risk Assessment ${riskLevel.emoji}</h3>`;
+        aiHTML += `
+            <div style="background: linear-gradient(135deg, ${riskLevel.color}15, ${riskLevel.color}25); border-left: 4px solid ${riskLevel.color}; padding: 1rem; border-radius: 6px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Risk Score</label>
+                        <div style="font-size: 2rem; font-weight: bold; color: ${riskLevel.color};">${report.aiAnalysis.risk_score}</div>
+                        <span style="font-size: 0.9rem; color: ${riskLevel.color};">${riskLevel.label} Risk</span>
+                    </div>
+                    ${confidence !== null ? `
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Confidence</label>
+                        <div style="font-size: 2rem; font-weight: bold; color: #7c3aed;">${confidence}%</div>
+                        <div style="background: #ecf0f1; height: 4px; border-radius: 2px; margin-top: 0.5rem;">
+                            <div style="background: linear-gradient(90deg, #3b82f6, #10b981); height: 100%; border-radius: 2px; width: ${confidence}%;"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+        `;
+
+        if (analysis.incident_summary) {
+            aiHTML += `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Incident Summary</label>
+                    <p style="margin: 0; color: #555; line-height: 1.5;">${escapeHtml(analysis.incident_summary)}</p>
+                </div>
+            `;
+        }
+
+        if (analysis.evidence_analysis) {
+            aiHTML += `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Evidence Analysis</label>
+                    <p style="margin: 0; color: #555; line-height: 1.5;">${escapeHtml(analysis.evidence_analysis)}</p>
+                </div>
+            `;
+        }
+
+        if (redFlags.length > 0) {
+            aiHTML += `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Red Flags Identified (${redFlags.length})</label>
+                    <ul style="margin: 0; padding-left: 1.25rem; color: #555;">
+                        ${redFlags.map(flag => `<li style="margin-bottom: 0.5rem;">${escapeHtml(flag)}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        if (recommendations.length > 0) {
+            aiHTML += `
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Recommendations</label>
+                    <ol style="margin: 0; padding-left: 1.25rem; color: #555;">
+                        ${recommendations.map(rec => `<li style="margin-bottom: 0.5rem;">${escapeHtml(rec)}</li>`).join('')}
+                    </ol>
+                </div>
+            `;
+        }
+
+        aiHTML += `</div>`;
+        aiAnalysisSection.innerHTML = aiHTML;
+        aiAnalysisSection.style.display = 'block';
+    } else {
+        aiAnalysisSection.style.display = 'none';
     }
 
     // Handle evidence

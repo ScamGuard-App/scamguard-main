@@ -133,9 +133,37 @@ reportForm.addEventListener('submit', async e => {
 
         const { data, error } = await sb
             .from('reports')
-            .insert([payload]);
+            .insert([payload])
+            .select();
 
         if (error) throw error;
+        if (!data || data.length === 0) {
+            throw new Error('No data returned from insert');
+        }
+
+        // Queue report for LLM analysis
+        const reportId = data[0].report_id;
+        console.log('[ReportSubmit] Report created with ID:', reportId);
+        
+        if (reportId) {
+            try {
+                console.log('[ReportSubmit] Queuing analysis for report:', reportId);
+                const analysisResponse = await fetch('/queue-analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ report_id: reportId }),
+                });
+                
+                const analysisData = await analysisResponse.json();
+                console.log('[ReportSubmit] Queue response:', analysisData);
+                
+                if (!analysisResponse.ok) {
+                    console.warn('Failed to queue analysis, but report was saved successfully:', analysisData);
+                }
+            } catch (queueErr) {
+                console.warn('Failed to queue analysis:', queueErr);
+            }
+        }
 
         successMessage.style.display = 'block';
         reportForm.reset();

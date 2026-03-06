@@ -11,9 +11,19 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/generative-ai": "^0.19.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "bull": "^4.11.5",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "pg": "^8.19.0"
+    "node-fetch": "^3.3.2",
+    "pg": "^8.19.0",
+    "redis": "^4.6.12"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "worker": "node worker.js"
   }
 }
