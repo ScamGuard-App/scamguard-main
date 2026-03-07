@@ -1,10 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 const path = require('path');
 const Queue = require('bull');
 const { createClient } = require('@supabase/supabase-js');
+const { analyzeReport } = require('./llmAnalysis.js');
 
 const app = express();
 app.use(cors());
@@ -23,6 +23,35 @@ const reportAnalysisQueue = new Queue('report-analysis', {
 
 // Initialize Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+function parseEvidencePaths(evidenceUrl) {
+    if (!evidenceUrl) return [];
+
+    try {
+        if (Array.isArray(evidenceUrl)) return evidenceUrl;
+        if (typeof evidenceUrl === 'string' && evidenceUrl.startsWith('[')) {
+            return JSON.parse(evidenceUrl);
+        }
+        if (typeof evidenceUrl === 'string') return [evidenceUrl];
+    } catch (err) {
+        console.warn('[Server] Failed to parse evidence_url:', err.message);
+    }
+
+    return [];
+}
+
+async function withTimeout(promise, ms, timeoutMessage) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+    });
+
+    try {
+        return await Promise.race([promise, timeoutPromise]);
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
 
 // simple endpoint used by the client to delete the currently logged-in user.
 // the request is POST /delete-account with JSON { user_id: '...' }.
@@ -109,14 +138,60 @@ app.post('/queue-analysis', async (req, res) => {
             console.log('[Server] Analysis record already exists for report:', report_id);
         }
 
-        // Add job to queue
-        const job = await reportAnalysisQueue.add({ reportId: report_id }, {
-            attempts: 1,  // No retries - rate limit errors shouldn't auto-retry
-            removeOnComplete: false,
-        });
+        // Add job to queue. If Redis/worker is unavailable, run analysis inline as fallback.
+        try {
+            const job = await withTimeout(
+                reportAnalysisQueue.add({ reportId: report_id }, {
+                    attempts: 1,  // No retries - rate limit errors shouldn't auto-retry
+                    removeOnComplete: false,
+                }),
+                2000,
+                'Queue add timed out (Redis unavailable)'
+            );
 
-        console.log(`[Server] Report ${report_id} queued for analysis, job ID: ${job.id}`);
-        res.json({ success: true, jobId: job.id, reportId: report_id });
+            console.log(`[Server] Report ${report_id} queued for analysis, job ID: ${job.id}`);
+            return res.json({
+                success: true,
+                mode: 'queued',
+                jobId: job.id,
+                reportId: report_id,
+            });
+        } catch (queueErr) {
+            console.warn('[Server] Queue unavailable, falling back to inline analysis:', queueErr.message);
+
+            const { data: reportData, error: reportFetchError } = await supabase
+                .from('reports')
+                .select('*')
+                .eq('report_id', report_id)
+                .single();
+
+            if (reportFetchError || !reportData) {
+                throw new Error(`Fallback failed to fetch report: ${reportFetchError?.message || 'No data'}`);
+            }
+
+            const evidencePaths = parseEvidencePaths(reportData.evidence_url);
+            const analysisResult = await analyzeReport(report_id, reportData, evidencePaths);
+
+            const { error: updateError } = await supabase
+                .from('ai_analysis')
+                .update({
+                    risk_score: analysisResult.risk_score || null,
+                    type: 'scam_analysis',
+                    summary: analysisResult.incident_summary || '',
+                    analysis_json: analysisResult,
+                })
+                .eq('report_id', report_id);
+
+            if (updateError) {
+                throw new Error(`Fallback update failed: ${updateError.message}`);
+            }
+
+            return res.json({
+                success: true,
+                mode: 'inline',
+                reportId: report_id,
+            });
+        }
     } catch (err) {
         console.error('[Server] Queue analysis error:', err);
         res.status(500).json({ error: 'Failed to queue analysis' });
@@ -186,6 +261,52 @@ app.get('/analyses/:report_id', async (req, res) => {
     } catch (err) {
         console.error('[Server] Analyses fetch error:', err);
         res.status(500).json({ error: 'Failed to fetch analyses' });
+    }
+});
+
+/**
+ * Get reports enriched with latest AI analysis per report.
+ * Uses service role on backend to avoid frontend RLS visibility issues.
+ */
+app.get('/reports-with-analysis', async (req, res) => {
+    try {
+        const { data: reports, error: reportsError } = await supabase
+            .from('reports')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (reportsError) throw reportsError;
+
+        const reportIds = (reports || []).map(r => r.report_id).filter(Boolean);
+        if (reportIds.length === 0) {
+            return res.json({ reports: [] });
+        }
+
+        const { data: analyses, error: analysesError } = await supabase
+            .from('ai_analysis')
+            .select('*')
+            .in('report_id', reportIds)
+            .order('created_at', { ascending: false });
+
+        if (analysesError) throw analysesError;
+
+        // Keep the latest analysis per report_id.
+        const analysisMap = {};
+        for (const analysis of (analyses || [])) {
+            if (!analysisMap[analysis.report_id]) {
+                analysisMap[analysis.report_id] = analysis;
+            }
+        }
+
+        const enriched = (reports || []).map(report => ({
+            ...report,
+            aiAnalysis: analysisMap[report.report_id] || null,
+        }));
+
+        res.json({ reports: enriched });
+    } catch (err) {
+        console.error('[Server] reports-with-analysis error:', err);
+        res.status(500).json({ error: 'Failed to load reports with analysis' });
     }
 });
 

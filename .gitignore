@@ -1,0 +1,18 @@
+# Dependencies and runtime artifacts
+node_modules/
+*.log
+npm-debug.log*
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Frontend local secret config
+public/js/supabase.js
+!public/js/supabase.example.js
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/

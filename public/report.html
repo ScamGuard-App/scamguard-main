@@ -8,6 +8,9 @@
     <title>Report a Scam - Scamguard</title>
 </head>
 <body>
+    <div id="stars" aria-hidden="true"></div>
+    <div id="stars2" aria-hidden="true"></div>
+    <div id="stars3" aria-hidden="true"></div>
     <nav>
         <div class="logo">
             <i class="fa-solid fa-code"></i>
@@ -35,6 +38,11 @@
 
         <div id="errorMessage" class="error-message">
             <i class="fas fa-exclamation-circle"></i> <span id="errorText">An error occurred. Please try again.</span>
+        </div>
+
+        <div id="analysisStatusMessage" class="analysis-status-message" aria-live="polite">
+            <i id="analysisStatusIcon" class="fas fa-robot"></i>
+            <span id="analysisStatusText">AI analysis status will appear here after submission.</span>
         </div>
 
         <form id="reportForm" class="report-form" novalidate>
@@ -100,6 +108,7 @@
     </main>
 
     <!-- external script handles form interactions and Supabase submission -->
+    <script src="js/starfield.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="js/supabase.js"></script>
     <script type="module" src="js/nav.js"></script>

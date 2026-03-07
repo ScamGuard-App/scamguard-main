@@ -21,6 +21,35 @@ function setupEventListeners() {
 
 async function loadReports() {
     try {
+        // Prefer backend endpoint so AI analysis is visible even when frontend RLS is restrictive.
+        const endpointCandidates = ['/reports-with-analysis', 'http://localhost:3000/reports-with-analysis'];
+        for (const endpoint of endpointCandidates) {
+            try {
+                const response = await fetch(endpoint);
+
+                // When hosted on a static server, relative endpoint may be unsupported.
+                if ((response.status === 404 || response.status === 405) && endpoint.startsWith('/')) {
+                    continue;
+                }
+
+                if (response.ok) {
+                    const payload = await response.json();
+                    allReports = payload.reports || [];
+
+                    const userIds = [...new Set(allReports.map(r => r.user_id).filter(Boolean))];
+                    const sbForProfiles = await ensureSupabase();
+                    if (sbForProfiles) {
+                        await fetchUsernames(userIds, sbForProfiles);
+                    }
+
+                    performSearch();
+                    return;
+                }
+            } catch (endpointErr) {
+                console.warn('[Reports] Backend reports endpoint failed:', endpointErr);
+            }
+        }
+
         const sb = await ensureSupabase();
         if (!sb) {
             showNoResults('Failed to connect to database');
@@ -90,6 +119,8 @@ async function fetchAIAnalysis(reports, sb) {
 
 async function fetchUsernames(userIds, sb) {
     try {
+        if (!userIds || userIds.length === 0) return;
+
         // Try to get user info from public profiles table if it exists
         const { data, error } = await sb
             .from('profiles')
@@ -109,7 +140,8 @@ async function fetchUsernames(userIds, sb) {
         console.warn('Could not fetch usernames:', err);
         // Fallback: use truncated user_id as display name
         userIds.forEach(id => {
-            usernameCache[id] = 'User ' + id.substring(0, 8);
+            if (!id) return;
+            usernameCache[id] = 'User ' + String(id).substring(0, 8);
         });
     }
 }
@@ -279,19 +311,19 @@ window.openReportModal = function(reportId) {
         const recommendations = analysis.recommendations || [];
         const confidence = analysis.confidence || null;
 
-        let aiHTML = `<h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: #2c3e50;">AI Risk Assessment ${riskLevel.emoji}</h3>`;
+        let aiHTML = `<h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: #e5e7eb;">AI Risk Assessment ${riskLevel.emoji}</h3>`;
         aiHTML += `
             <div style="background: linear-gradient(135deg, ${riskLevel.color}15, ${riskLevel.color}25); border-left: 4px solid ${riskLevel.color}; padding: 1rem; border-radius: 6px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div>
-                        <label style="display: block; font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Risk Score</label>
+                        <label style="display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.25rem;">Risk Score</label>
                         <div style="font-size: 2rem; font-weight: bold; color: ${riskLevel.color};">${report.aiAnalysis.risk_score}</div>
                         <span style="font-size: 0.9rem; color: ${riskLevel.color};">${riskLevel.label} Risk</span>
                     </div>
                     ${confidence !== null ? `
                     <div>
-                        <label style="display: block; font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Confidence</label>
-                        <div style="font-size: 2rem; font-weight: bold; color: #7c3aed;">${confidence}%</div>
+                        <label style="display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.25rem;">Confidence</label>
+                        <div style="font-size: 2rem; font-weight: bold; color: #60aedb;">${confidence}%</div>
                         <div style="background: #ecf0f1; height: 4px; border-radius: 2px; margin-top: 0.5rem;">
                             <div style="background: linear-gradient(90deg, #3b82f6, #10b981); height: 100%; border-radius: 2px; width: ${confidence}%;"></div>
                         </div>
@@ -303,8 +335,8 @@ window.openReportModal = function(reportId) {
         if (analysis.incident_summary) {
             aiHTML += `
                 <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Incident Summary</label>
-                    <p style="margin: 0; color: #555; line-height: 1.5;">${escapeHtml(analysis.incident_summary)}</p>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem;">Incident Summary</label>
+                    <p style="margin: 0; color: #d1d5db; line-height: 1.5;">${escapeHtml(analysis.incident_summary)}</p>
                 </div>
             `;
         }
@@ -312,8 +344,8 @@ window.openReportModal = function(reportId) {
         if (analysis.evidence_analysis) {
             aiHTML += `
                 <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Evidence Analysis</label>
-                    <p style="margin: 0; color: #555; line-height: 1.5;">${escapeHtml(analysis.evidence_analysis)}</p>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem;">Evidence Analysis</label>
+                    <p style="margin: 0; color: #d1d5db; line-height: 1.5;">${escapeHtml(analysis.evidence_analysis)}</p>
                 </div>
             `;
         }
@@ -321,8 +353,8 @@ window.openReportModal = function(reportId) {
         if (redFlags.length > 0) {
             aiHTML += `
                 <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Red Flags Identified (${redFlags.length})</label>
-                    <ul style="margin: 0; padding-left: 1.25rem; color: #555;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem;">Red Flags Identified (${redFlags.length})</label>
+                    <ul style="margin: 0; padding-left: 1.25rem; color: #d1d5db;">
                         ${redFlags.map(flag => `<li style="margin-bottom: 0.5rem;">${escapeHtml(flag)}</li>`).join('')}
                     </ul>
                 </div>
@@ -332,8 +364,8 @@ window.openReportModal = function(reportId) {
         if (recommendations.length > 0) {
             aiHTML += `
                 <div>
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;">Recommendations</label>
-                    <ol style="margin: 0; padding-left: 1.25rem; color: #555;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem;">Recommendations</label>
+                    <ol style="margin: 0; padding-left: 1.25rem; color: #d1d5db;">
                         ${recommendations.map(rec => `<li style="margin-bottom: 0.5rem;">${escapeHtml(rec)}</li>`).join('')}
                     </ol>
                 </div>

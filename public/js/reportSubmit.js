@@ -5,10 +5,15 @@ const reportForm = document.getElementById('reportForm');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
+const analysisStatusMessage = document.getElementById('analysisStatusMessage');
+const analysisStatusText = document.getElementById('analysisStatusText');
+const analysisStatusIcon = document.getElementById('analysisStatusIcon');
 const evidenceInput = document.getElementById('evidenceInput');
 const evidenceArea = document.getElementById('evidenceArea');
 const evidenceList = document.getElementById('evidenceList');
 let uploadedFiles = [];
+let analysisPollTimer = null;
+let analysisPollAttempts = 0;
 
 // helper utilities
 function showError(msg) {
@@ -19,6 +24,39 @@ function showError(msg) {
 function clearMessages() {
     successMessage.style.display = 'none';
     errorMessage.style.display = 'none';
+}
+
+function clearAnalysisPolling() {
+    if (analysisPollTimer) {
+        clearInterval(analysisPollTimer);
+        analysisPollTimer = null;
+    }
+    analysisPollAttempts = 0;
+}
+
+function updateAnalysisStatus(state, message) {
+    if (!analysisStatusMessage || !analysisStatusText || !analysisStatusIcon) return;
+
+    analysisStatusMessage.classList.remove('pending', 'completed', 'failed');
+    analysisStatusMessage.classList.add(state);
+    analysisStatusText.textContent = message;
+
+    if (state === 'completed') {
+        analysisStatusIcon.className = 'fas fa-check-circle';
+    } else if (state === 'failed') {
+        analysisStatusIcon.className = 'fas fa-exclamation-triangle';
+    } else {
+        analysisStatusIcon.className = 'fas fa-robot';
+    }
+
+    analysisStatusMessage.style.display = 'block';
+}
+
+function resetAnalysisStatusUI() {
+    clearAnalysisPolling();
+    if (!analysisStatusMessage) return;
+    analysisStatusMessage.style.display = 'none';
+    analysisStatusMessage.classList.remove('pending', 'completed', 'failed');
 }
 
 // --- evidence file handling ---
@@ -77,9 +115,108 @@ document.addEventListener('click', (e) => {
 
 function makeId() { return Math.random().toString(36).substr(2,9); }
 
+async function postQueueAnalysis(reportId) {
+    const endpoints = ['/queue-analysis', 'http://localhost:3000/queue-analysis'];
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ report_id: reportId }),
+            });
+
+            // If we hit a wrong host (common when using static Live Server), try next endpoint.
+            if ((response.status === 404 || response.status === 405) && endpoint.startsWith('/')) {
+                continue;
+            }
+
+            const json = await response.json().catch(() => ({}));
+            return { response, data: json, endpoint };
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    throw lastError || new Error('No analysis endpoint is reachable');
+}
+
+async function getAnalysisStatus(reportId) {
+    const endpoints = [`/analysis-status/${reportId}`, `http://localhost:3000/analysis-status/${reportId}`];
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+        try {
+            const response = await fetch(endpoint);
+            if ((response.status === 404 || response.status === 405) && endpoint.startsWith('/')) {
+                continue;
+            }
+
+            const data = await response.json().catch(() => ({}));
+            return { response, data, endpoint };
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    throw lastError || new Error('No analysis status endpoint is reachable');
+}
+
+async function pollAnalysisStatus(reportId) {
+    try {
+        const { response, data } = await getAnalysisStatus(reportId);
+        if (!response.ok) {
+            throw new Error(data?.error || 'Status request failed');
+        }
+
+        const status = data?.status || 'pending';
+        if (status === 'completed') {
+            clearAnalysisPolling();
+            const risk = data?.analysis?.risk_score;
+            const riskText = (risk === null || risk === undefined) ? '' : ` Risk score: ${risk}.`;
+            updateAnalysisStatus('completed', `AI analysis completed.${riskText}`);
+            return;
+        }
+
+        if (status === 'failed') {
+            clearAnalysisPolling();
+            const errMsg = data?.analysis?.analysis_json?.error || 'Unknown error';
+            updateAnalysisStatus('failed', `AI analysis failed: ${errMsg}`);
+            return;
+        }
+
+        updateAnalysisStatus('pending', 'AI analysis in progress. This may take up to a minute...');
+
+        analysisPollAttempts += 1;
+        if (analysisPollAttempts >= 30) {
+            clearAnalysisPolling();
+            updateAnalysisStatus('failed', 'AI analysis is taking longer than expected. Please check again from the Reports page.');
+        }
+    } catch (err) {
+        console.warn('[ReportSubmit] Analysis status poll error:', err);
+        analysisPollAttempts += 1;
+        if (analysisPollAttempts >= 12) {
+            clearAnalysisPolling();
+            updateAnalysisStatus('failed', 'Could not check AI analysis status. Please verify the backend is running.');
+        }
+    }
+}
+
+function startAnalysisStatusPolling(reportId) {
+    clearAnalysisPolling();
+    updateAnalysisStatus('pending', 'AI analysis queued. Waiting for processing...');
+
+    pollAnalysisStatus(reportId);
+    analysisPollTimer = setInterval(() => {
+        pollAnalysisStatus(reportId);
+    }, 4000);
+}
+
 reportForm.addEventListener('submit', async e => {
     e.preventDefault();
     clearMessages();
+    resetAnalysisStatusUI();
 
     const sb = await ensureSupabase();
     if (!sb) {
@@ -148,20 +285,25 @@ reportForm.addEventListener('submit', async e => {
         if (reportId) {
             try {
                 console.log('[ReportSubmit] Queuing analysis for report:', reportId);
-                const analysisResponse = await fetch('/queue-analysis', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ report_id: reportId }),
-                });
-                
-                const analysisData = await analysisResponse.json();
+                const { response: analysisResponse, data: analysisData, endpoint } = await postQueueAnalysis(reportId);
                 console.log('[ReportSubmit] Queue response:', analysisData);
+                console.log('[ReportSubmit] Analysis endpoint:', endpoint);
                 
                 if (!analysisResponse.ok) {
                     console.warn('Failed to queue analysis, but report was saved successfully:', analysisData);
+                    showError('Report saved, but AI analysis could not be started. Check backend logs.');
+                    updateAnalysisStatus('failed', 'Report saved, but AI analysis could not be started.');
+                } else if (analysisData.mode === 'inline') {
+                    successMessage.textContent = 'Report submitted and analyzed immediately by AI.';
+                    startAnalysisStatusPolling(reportId);
+                } else {
+                    successMessage.textContent = 'Report submitted. AI analysis has been queued.';
+                    startAnalysisStatusPolling(reportId);
                 }
             } catch (queueErr) {
                 console.warn('Failed to queue analysis:', queueErr);
+                showError('Report saved, but AI analysis request failed. Check backend availability.');
+                updateAnalysisStatus('failed', 'Report saved, but AI analysis request failed.');
             }
         }
 
@@ -177,6 +319,12 @@ reportForm.addEventListener('submit', async e => {
         showError('Unable to submit report. Please try again later.');
     }
 });
+
+if (reportForm) {
+    reportForm.addEventListener('reset', () => {
+        resetAnalysisStatusUI();
+    });
+}
 
 // client-side magic number verifier for PNG, JPG, GIF, PDF
 async function verifyMagicNumber(file) {
