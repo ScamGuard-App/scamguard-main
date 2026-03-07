@@ -1,3 +1,27 @@
+
+// using helmet to secure http headers and set a strict content security policy against xss etc.
+import helmet from "helmet";
+
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                "script-src": ["'none'"],
+                "font-src": ["'self'"],
+            },
+        },
+    }),
+);
+
+helmet.contentSecurityPolicy({
+  useDefaults: true,
+  directives: {
+    "font-src": ["'self'"],
+    // allowing styles from any website
+    "style-src": null,
+  },
+})
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
