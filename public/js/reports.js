@@ -3,12 +3,135 @@ import { escapeHtml } from './utils.js';
 
 let allReports = [];
 let usernameCache = {};
+let pendingReportId = null;
+let hasHandledDeepLink = false;
+
+function coerceAnalysisJson(value) {
+    if (!value) return null;
+    if (typeof value === 'object') return value;
+    if (typeof value === 'string') {
+        try {
+            return JSON.parse(value);
+        } catch (_err) {
+            return null;
+        }
+    }
+    return null;
+}
+
+function normalizeAnalysisRecord(record) {
+    if (!record) return null;
+    return {
+        ...record,
+        analysis_json: coerceAnalysisJson(record.analysis_json),
+    };
+}
+
+function toScoreNumber(score) {
+    const parsed = Number(score);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function analysisPriority(record) {
+    if (!record) return -1;
+
+    const score = toScoreNumber(record.risk_score);
+    const analysisJson = record.analysis_json || {};
+    const status = String(analysisJson.status || '').toLowerCase();
+    const summaryText = `${record.summary || ''}${analysisJson.incident_summary || ''}`.trim();
+    const hasError = Boolean(analysisJson.error);
+
+    let rank = 0;
+    if (score !== null) rank += 100;
+    if (summaryText) rank += 10;
+    if (status === 'completed') rank += 5;
+    if (status === 'pending' || status === 'not_started') rank -= 2;
+    if (hasError) rank -= 5;
+
+    return rank;
+}
+
+function pickBestAnalysis(current, candidate) {
+    if (!candidate) return current || null;
+    if (!current) return candidate;
+
+    const currentPriority = analysisPriority(current);
+    const candidatePriority = analysisPriority(candidate);
+
+    if (candidatePriority > currentPriority) return candidate;
+    if (candidatePriority < currentPriority) return current;
+
+    const currentTime = new Date(current.created_at || 0).getTime();
+    const candidateTime = new Date(candidate.created_at || 0).getTime();
+    return candidateTime >= currentTime ? candidate : current;
+}
+
+function normalizeReportAnalysis(report) {
+    if (!report) return report;
+
+    let selected = null;
+    const raw = report.aiAnalysis ?? report.ai_analysis ?? null;
+    if (Array.isArray(raw)) {
+        raw.forEach(item => {
+            selected = pickBestAnalysis(selected, normalizeAnalysisRecord(item));
+        });
+    } else if (raw) {
+        selected = normalizeAnalysisRecord(raw);
+    }
+
+    return {
+        ...report,
+        aiAnalysis: selected,
+    };
+}
+
+function hasRenderableAnalysis(ai) {
+    if (!ai) return false;
+    const score = toScoreNumber(ai.risk_score);
+    const analysisJson = ai.analysis_json || {};
+    const summary = `${ai.summary || ''}${analysisJson.incident_summary || ''}${analysisJson.evidence_analysis || ''}`.trim();
+    return score !== null || Boolean(summary);
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    pendingReportId = getDeepLinkedReportId();
     loadReports();
     setupEventListeners();
 });
+
+function getDeepLinkedReportId() {
+    const params = new URLSearchParams(window.location.search);
+    const reportId = params.get('reportId');
+    return reportId ? reportId.trim() : null;
+}
+
+function escapeSelectorValue(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+        return window.CSS.escape(value);
+    }
+    return String(value).replace(/["\\]/g, '\\$&');
+}
+
+function handleDeepLinkedReport() {
+    if (!pendingReportId || hasHandledDeepLink) return;
+
+    const report = allReports.find(r => String(r.report_id) === pendingReportId);
+    hasHandledDeepLink = true;
+    if (!report) return;
+
+    window.openReportModal(report.report_id);
+
+    requestAnimationFrame(() => {
+        const selectorValue = escapeSelectorValue(String(report.report_id));
+        const row = document.querySelector(`tr[data-report-id="${selectorValue}"]`);
+        if (!row) return;
+
+        row.classList.add('deep-link-target');
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => row.classList.remove('deep-link-target'), 2200);
+    });
+}
 
 function setupEventListeners() {
     document.getElementById('searchBtn').addEventListener('click', performSearch);
@@ -34,7 +157,7 @@ async function loadReports() {
 
                 if (response.ok) {
                     const payload = await response.json();
-                    allReports = payload.reports || [];
+                    allReports = (payload.reports || []).map(normalizeReportAnalysis);
 
                     const userIds = [...new Set(allReports.map(r => r.user_id).filter(Boolean))];
                     const sbForProfiles = await ensureSupabase();
@@ -43,6 +166,7 @@ async function loadReports() {
                     }
 
                     performSearch();
+                    handleDeepLinkedReport();
                     return;
                 }
             } catch (endpointErr) {
@@ -77,6 +201,7 @@ async function loadReports() {
         await fetchAIAnalysis(allReports, sb);
         
         performSearch();
+        handleDeepLinkedReport();
     } catch (err) {
         console.error('Error:', err);
         showNoResults('An error occurred while loading reports');
@@ -105,7 +230,8 @@ async function fetchAIAnalysis(reports, sb) {
         // Create a map of report_id -> analysis for quick lookup
         const analysisMap = {};
         data?.forEach(analysis => {
-            analysisMap[analysis.report_id] = analysis;
+            const normalized = normalizeAnalysisRecord(analysis);
+            analysisMap[analysis.report_id] = pickBestAnalysis(analysisMap[analysis.report_id], normalized);
         });
 
         // Attach analysis to each report
@@ -230,12 +356,14 @@ function renderResults(results) {
         const username = usernameCache[report.user_id] || 'Anonymous';
         const hasEvidence = report.evidence_url && (typeof report.evidence_url === 'string' || Object.keys(report.evidence_url || {}).length > 0);
         const riskLevel = getRiskLevel(report.aiAnalysis?.risk_score);
-        const riskBadge = report.aiAnalysis?.risk_score !== null && report.aiAnalysis?.risk_score !== undefined
-            ? `<span class="risk-badge" style="background-color: ${riskLevel.color}; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold;">${riskLevel.emoji} ${report.aiAnalysis.risk_score}</span>`
+        const riskScore = toScoreNumber(report.aiAnalysis?.risk_score);
+        const riskBadge = riskScore !== null
+            ? `<span class="risk-badge" style="background-color: ${riskLevel.color}; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold;">${riskLevel.emoji} ${riskScore}</span>`
             : '<span style="color: #9ca3af; font-size: 12px;">⏳ Pending</span>';
+        const isDeepLinkTarget = pendingReportId && String(report.report_id) === pendingReportId;
 
         return `
-            <tr style="cursor: pointer;" onclick="openReportModal('${escapeAttr(report.report_id)}')">
+            <tr class="${isDeepLinkTarget ? 'deep-link-target' : ''}" data-report-id="${escapeAttr(report.report_id)}" style="cursor: pointer;" onclick="openReportModal('${escapeAttr(report.report_id)}')">
                 <td style="max-width: 200px; word-break: break-word;">${escapeHtml(report.title || 'N/A')}</td>
                 <td><span style="background: rgba(196, 28, 59, 0.3); padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px;">${escapeHtml(report.type || 'Other')}</span></td>
                 <td>${riskBadge}</td>
@@ -304,9 +432,11 @@ window.openReportModal = function(reportId) {
 
     // Handle AI Analysis
     const aiAnalysisSection = document.getElementById('aiAnalysisSection');
-    if (report.aiAnalysis && report.aiAnalysis.risk_score !== null && report.aiAnalysis.risk_score !== undefined) {
+    if (hasRenderableAnalysis(report.aiAnalysis)) {
         const analysis = report.aiAnalysis.analysis_json || {};
-        const riskLevel = getRiskLevel(report.aiAnalysis.risk_score);
+        const riskScore = toScoreNumber(report.aiAnalysis.risk_score);
+        const riskLevel = getRiskLevel(riskScore);
+        const summaryText = analysis.incident_summary || report.aiAnalysis.summary || '';
         const redFlags = analysis.red_flags || [];
         const recommendations = analysis.recommendations || [];
         const confidence = analysis.confidence || null;
@@ -317,8 +447,8 @@ window.openReportModal = function(reportId) {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div>
                         <label style="display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.25rem;">Risk Score</label>
-                        <div style="font-size: 2rem; font-weight: bold; color: ${riskLevel.color};">${report.aiAnalysis.risk_score}</div>
-                        <span style="font-size: 0.9rem; color: ${riskLevel.color};">${riskLevel.label} Risk</span>
+                        <div style="font-size: 2rem; font-weight: bold; color: ${riskLevel.color};">${riskScore !== null ? riskScore : 'N/A'}</div>
+                        <span style="font-size: 0.9rem; color: ${riskLevel.color};">${riskScore !== null ? `${riskLevel.label} Risk` : 'Awaiting score'}</span>
                     </div>
                     ${confidence !== null ? `
                     <div>
@@ -332,11 +462,11 @@ window.openReportModal = function(reportId) {
                 </div>
         `;
 
-        if (analysis.incident_summary) {
+        if (summaryText) {
             aiHTML += `
                 <div style="margin-bottom: 1rem;">
                     <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem;">Incident Summary</label>
-                    <p style="margin: 0; color: #d1d5db; line-height: 1.5;">${escapeHtml(analysis.incident_summary)}</p>
+                    <p style="margin: 0; color: #d1d5db; line-height: 1.5;">${escapeHtml(summaryText)}</p>
                 </div>
             `;
         }

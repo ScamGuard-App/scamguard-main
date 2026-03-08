@@ -14,6 +14,27 @@ const reportAnalysisQueue = new Queue('report-analysis', {
 // Initialize Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+function parseEvidencePaths(evidenceUrl) {
+    if (!evidenceUrl) return [];
+    if (Array.isArray(evidenceUrl)) return evidenceUrl;
+
+    if (typeof evidenceUrl === 'string') {
+        const trimmed = evidenceUrl.trim();
+        if (!trimmed) return [];
+        if (trimmed.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (_err) {
+                return [];
+            }
+        }
+        return [trimmed];
+    }
+
+    return [];
+}
+
 /**
  * Process report analysis job (concurrency: 1 to respect Gemini rate limits)
  * Free tier: 5 requests/minute, so process sequentially
@@ -39,15 +60,7 @@ reportAnalysisQueue.process(1, async (job) => {
         console.log(`[Worker] Found report, analyzing...`);
 
         // Parse evidence paths
-        let evidencePaths = [];
-        if (reportData.evidence_url) {
-            try {
-                evidencePaths = JSON.parse(reportData.evidence_url);
-            } catch (e) {
-                console.warn('[Worker] Failed to parse evidence_url:', e);
-                evidencePaths = [];
-            }
-        }
+        const evidencePaths = parseEvidencePaths(reportData.evidence_url);
 
         // Analyze report using Claude
         const analysisResult = await analyzeReport(reportId, reportData, evidencePaths);

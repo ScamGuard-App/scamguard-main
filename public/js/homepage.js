@@ -75,6 +75,24 @@ function updateStatistics(reports) {
 
 // render a Chart.js pie/bar of scam type distribution
 let typeChartInstance = null;
+
+function getBlueGreenGradient(steps) {
+    const blue = [37, 99, 235];
+    const green = [16, 185, 129];
+
+    if (steps <= 1) {
+        return [`rgb(${blue[0]}, ${blue[1]}, ${blue[2]})`];
+    }
+
+    return Array.from({ length: steps }, (_, i) => {
+        const t = i / (steps - 1);
+        const r = Math.round(blue[0] + (green[0] - blue[0]) * t);
+        const g = Math.round(blue[1] + (green[1] - blue[1]) * t);
+        const b = Math.round(blue[2] + (green[2] - blue[2]) * t);
+        return `rgb(${r}, ${g}, ${b})`;
+    });
+}
+
 function renderTypeChart(reports) {
     const ctx = document.getElementById('typeChart');
     if (!ctx) return;
@@ -87,11 +105,16 @@ function renderTypeChart(reports) {
 
     const labels = Object.keys(counts);
     const data = labels.map(l => counts[l]);
-    const backgroundColors = labels.map((_, i) => `hsl(${(i*60)%360}, 70%, 50%)`);
+    const backgroundColors = getBlueGreenGradient(labels.length);
+    const chartBorderColor = '#0b1220';
+    const chartBorderWidth = 3;
 
     if (typeChartInstance) {
         typeChartInstance.data.labels = labels;
         typeChartInstance.data.datasets[0].data = data;
+        typeChartInstance.data.datasets[0].backgroundColor = backgroundColors;
+        typeChartInstance.data.datasets[0].borderColor = chartBorderColor;
+        typeChartInstance.data.datasets[0].borderWidth = chartBorderWidth;
         typeChartInstance.update();
         return;
     }
@@ -103,6 +126,8 @@ function renderTypeChart(reports) {
             datasets: [{
                 data,
                 backgroundColor: backgroundColors,
+                borderColor: chartBorderColor,
+                borderWidth: chartBorderWidth,
             }]
         },
         options: {
@@ -192,6 +217,22 @@ function createScamCard(report) {
             </div>
         </div>
     `;
+
+    if (report.report_id) {
+        const targetUrl = `reports.html?reportId=${encodeURIComponent(String(report.report_id))}`;
+        card.classList.add('recent-report-link');
+        card.setAttribute('role', 'link');
+        card.tabIndex = 0;
+        card.addEventListener('click', () => {
+            window.location.href = targetUrl;
+        });
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                window.location.href = targetUrl;
+            }
+        });
+    }
 
     return card;
 }

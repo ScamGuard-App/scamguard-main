@@ -59,7 +59,7 @@ function resetAnalysisStatusUI() {
     analysisStatusMessage.classList.remove('pending', 'completed', 'failed');
 }
 
-// --- evidence file handling ---
+// evidence file handling
 if (evidenceInput) {
     evidenceInput.addEventListener('change', (e) => handleEvidenceFiles(e.target.files));
 }
@@ -70,6 +70,7 @@ if (evidenceArea) {
     evidenceArea.addEventListener('drop', (e) => { e.preventDefault(); evidenceArea.classList.remove('dragover'); handleEvidenceFiles(e.dataTransfer.files); });
 }
 
+// restrict file size & types
 function handleEvidenceFiles(files) {
     const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'application/pdf'];
     for (let file of files) {

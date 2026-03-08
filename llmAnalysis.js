@@ -4,9 +4,12 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 // LLM Configuration
 const LLM_PROVIDER = process.env.LLM_PROVIDER || 'ollama'; // 'ollama' or 'gemini'
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
+const RISK_SCORE_BIAS = Number(process.env.RISK_SCORE_BIAS ?? -10);
+const RISK_SOFT_CAP_NO_EVIDENCE = Number(process.env.RISK_SOFT_CAP_NO_EVIDENCE ?? 78);
+const RISK_SOFT_CAP_WEAK_SIGNALS = Number(process.env.RISK_SOFT_CAP_WEAK_SIGNALS ?? 65);
 
 /**
  * Determine media type based on file extension
@@ -18,9 +21,116 @@ function getMediaType(filePath) {
         'jpeg': 'image/jpeg',
         'png': 'image/png',
         'gif': 'image/gif',
+        'webp': 'image/webp',
         'pdf': 'application/pdf',
     };
     return mimeTypes[ext] || 'application/octet-stream';
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function toFiniteNumber(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function countStrongSignals(text) {
+    const normalized = String(text || '').toLowerCase();
+    const patterns = [
+        /gift\s*card/, /crypto|bitcoin|usdt|wallet/, /wire\s*transfer|bank\s*transfer/,
+        /otp|one[-\s]*time\s*password|verification\s*code/, /remote\s*access|anydesk|teamviewer/,
+        /impersonat|pretend(s|ing)?\s+to\s+be/, /urgent|act\s+now|immediately/,
+        /romance\s+scam|investment\s+scam|tech\s*support/, /refund\s+scam|account\s+locked/
+    ];
+    return patterns.reduce((count, rx) => count + (rx.test(normalized) ? 1 : 0), 0);
+}
+
+function buildEvidenceContext(evidencePaths) {
+    if (!Array.isArray(evidencePaths) || evidencePaths.length === 0) {
+        return {
+            total: 0,
+            imageCount: 0,
+            pdfCount: 0,
+            otherCount: 0,
+            fileNames: [],
+        };
+    }
+
+    let imageCount = 0;
+    let pdfCount = 0;
+    let otherCount = 0;
+    const fileNames = [];
+
+    for (const path of evidencePaths) {
+        const mediaType = getMediaType(path);
+        const fileName = String(path || '').split('/').pop();
+        if (fileName) fileNames.push(fileName);
+
+        if (mediaType.startsWith('image/')) imageCount += 1;
+        else if (mediaType === 'application/pdf') pdfCount += 1;
+        else otherCount += 1;
+    }
+
+    return {
+        total: evidencePaths.length,
+        imageCount,
+        pdfCount,
+        otherCount,
+        fileNames,
+    };
+}
+
+function calibrateRiskScore(analysisData, reportData, evidenceContext) {
+    const calibrated = { ...analysisData };
+    const rawScore = toFiniteNumber(analysisData?.risk_score, 50);
+    let score = rawScore + RISK_SCORE_BIAS;
+
+    const redFlags = Array.isArray(analysisData?.red_flags) ? analysisData.red_flags : [];
+    const textCorpus = [
+        reportData?.title,
+        reportData?.desc,
+        analysisData?.incident_summary,
+        analysisData?.evidence_analysis,
+        redFlags.join(' '),
+    ].join(' ');
+
+    const strongSignals = countStrongSignals(textCorpus);
+    const hasEvidence = evidenceContext.total > 0;
+    const confidence = toFiniteNumber(analysisData?.confidence, 50);
+
+    if (!hasEvidence) {
+        score = Math.min(score, RISK_SOFT_CAP_NO_EVIDENCE);
+    }
+
+    if (strongSignals <= 1 && redFlags.length <= 2) {
+        score = Math.min(score, RISK_SOFT_CAP_WEAK_SIGNALS);
+    }
+
+    if (confidence < 45 && score > 75) {
+        score = 75;
+    }
+
+    if (strongSignals >= 3 && score < 60) {
+        score = 60;
+    }
+
+    const hasReportText = Boolean(`${reportData?.title || ''}${reportData?.desc || ''}`.trim());
+    if (hasReportText && score <= 0) {
+        score = strongSignals >= 1 ? 25 : 15;
+    }
+
+    calibrated.risk_score = clamp(Math.round(score), 0, 100);
+    calibrated.calibration = {
+        raw_score: clamp(Math.round(rawScore), 0, 100),
+        final_score: calibrated.risk_score,
+        strong_signals: strongSignals,
+        evidence_count: evidenceContext.total,
+        applied_bias: RISK_SCORE_BIAS,
+    };
+
+    return calibrated;
 }
 
 /**
@@ -49,6 +159,7 @@ async function analyzeReport(reportId, reportData, evidencePaths) {
         console.log(`[LLM] Starting analysis for report ${reportId} using ${LLM_PROVIDER}`);
 
         let analysisData;
+        const evidenceContext = buildEvidenceContext(evidencePaths);
 
         // Try primary provider
         try {
@@ -57,6 +168,7 @@ async function analyzeReport(reportId, reportData, evidencePaths) {
             } else {
                 analysisData = await analyzeWithGemini(reportId, reportData, evidencePaths);
             }
+            analysisData = calibrateRiskScore(analysisData, reportData, evidenceContext);
             console.log(`[LLM] Analysis complete for report ${reportId}, risk_score: ${analysisData.risk_score}`);
             return analysisData;
         } catch (primaryErr) {
@@ -67,6 +179,7 @@ async function analyzeReport(reportId, reportData, evidencePaths) {
                 console.log(`[LLM] Attempting fallback to Gemini API...`);
                 try {
                     analysisData = await analyzeWithGemini(reportId, reportData, evidencePaths);
+                    analysisData = calibrateRiskScore(analysisData, reportData, evidenceContext);
                     console.log(`[LLM] Fallback to Gemini succeeded`);
                     return analysisData;
                 } catch (fallbackErr) {
@@ -89,8 +202,10 @@ async function analyzeReport(reportId, reportData, evidencePaths) {
 async function analyzeWithOllama(reportId, reportData, evidencePaths) {
     console.log(`[LLM] Querying Ollama at ${OLLAMA_URL}`);
 
-    // Build prompt
-    const prompt = buildAnalysisPrompt(reportData);
+    const evidenceContext = buildEvidenceContext(evidencePaths);
+    const prompt = buildAnalysisPrompt(reportData, evidenceContext, {
+        evidenceInspectionMode: 'metadata_only',
+    });
 
     try {
         // Test Ollama connection
@@ -143,7 +258,10 @@ async function analyzeWithGemini(reportId, reportData, evidencePaths) {
         console.log(`[LLM] Querying Gemini API...`);
 
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const prompt = buildAnalysisPrompt(reportData);
+        const evidenceContext = buildEvidenceContext(evidencePaths);
+        const prompt = buildAnalysisPrompt(reportData, evidenceContext, {
+            evidenceInspectionMode: 'full',
+        });
 
         // Build content array with text first
         const content = [{ text: prompt }];
@@ -161,8 +279,8 @@ async function analyzeWithGemini(reportId, reportData, evidencePaths) {
 
                 const mediaType = getMediaType(filePath);
                 
-                if (mediaType.startsWith('image/')) {
-                    console.log(`[LLM] Adding image file ${filePath}`);
+                if (mediaType.startsWith('image/') || mediaType === 'application/pdf') {
+                    console.log(`[LLM] Adding evidence file ${filePath} (${mediaType})`);
                     content.push({
                         inlineData: {
                             mimeType: mediaType,
@@ -170,7 +288,7 @@ async function analyzeWithGemini(reportId, reportData, evidencePaths) {
                         },
                     });
                 } else {
-                    console.log(`[LLM] Skipping ${filePath} (PDF not supported)`);
+                    console.log(`[LLM] Skipping ${filePath} (unsupported media type: ${mediaType})`);
                 }
             }
         }
@@ -193,7 +311,18 @@ async function analyzeWithGemini(reportId, reportData, evidencePaths) {
 /**
  * Build analysis prompt (shared between providers)
  */
-function buildAnalysisPrompt(reportData) {
+function buildAnalysisPrompt(reportData, evidenceContext, options = {}) {
+    const mode = options.evidenceInspectionMode || 'full';
+    const evidenceHeader = evidenceContext.total > 0
+        ? `Evidence files: ${evidenceContext.total} total (${evidenceContext.imageCount} images, ${evidenceContext.pdfCount} pdfs, ${evidenceContext.otherCount} other).`
+        : 'Evidence files: none provided.';
+    const evidenceNames = evidenceContext.fileNames.length > 0
+        ? `Evidence filenames: ${evidenceContext.fileNames.join(', ')}`
+        : '';
+    const evidenceInstruction = mode === 'metadata_only'
+        ? 'You cannot directly inspect attachment binaries in this run. Do not overstate certainty from evidence; explicitly lower confidence when evidence cannot be inspected.'
+        : 'You can inspect provided image/PDF evidence. Reference specific evidence observations and avoid generic statements.';
+
     return `Please analyze this scam report with the provided evidence:
 
 **Report Title:** ${reportData.title || 'N/A'}
@@ -201,6 +330,18 @@ function buildAnalysisPrompt(reportData) {
 **Description:** ${reportData.desc || 'N/A'}
 ${reportData.scammer_name ? `**Scammer Name:** ${reportData.scammer_name}` : ''}
 ${reportData.phone ? `**Phone Number:** ${reportData.phone}` : ''}
+${evidenceHeader}
+${evidenceNames}
+
+Scoring rubric (important):
+- Start from 40 as a neutral baseline.
+- Weak signals alone (weird username, odd phone formatting, short/vague text) should usually stay under 60.
+- Use 60-79 only when there are multiple concrete scam indicators.
+- Use 80-100 only when evidence strongly supports fraud (clear impersonation, payment coercion, OTP theft, remote-access abuse, repeated strong red flags).
+- If evidence is missing/unclear, lower confidence and avoid extreme scores.
+
+Evidence handling requirement:
+${evidenceInstruction}
 
 Please provide a response in JSON format with the following structure:
 {
@@ -234,6 +375,8 @@ function parseAnalysisResponse(responseText) {
         if (jsonMatch) {
             try {
                 analysisData = JSON.parse(jsonMatch[1]);
+                analysisData.risk_score = clamp(Math.round(toFiniteNumber(analysisData.risk_score, 50)), 0, 100);
+                analysisData.confidence = clamp(Math.round(toFiniteNumber(analysisData.confidence, 50)), 0, 100);
                 console.log(`[LLM] Successfully parsed JSON from markdown block`);
                 return analysisData;
             } catch (parseErr) {
@@ -244,6 +387,8 @@ function parseAnalysisResponse(responseText) {
         // Try direct JSON parse
         try {
             analysisData = JSON.parse(responseText);
+            analysisData.risk_score = clamp(Math.round(toFiniteNumber(analysisData.risk_score, 50)), 0, 100);
+            analysisData.confidence = clamp(Math.round(toFiniteNumber(analysisData.confidence, 50)), 0, 100);
             console.log(`[LLM] Successfully parsed JSON directly`);
             return analysisData;
         } catch (parseErr) {

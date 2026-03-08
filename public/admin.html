@@ -23,13 +23,83 @@
         </div>
     </nav>
 
-    <main class="content">
-        <h1>Admin Panel</h1>
+    <main class="content admin-dashboard">
+        <h1>Admin Dashboard</h1>
+        <p class="admin-subtitle">Monitor platform health, trigger AI processing, and manage core records.</p>
         <div id="adminAlert" class="auth-error" style="margin-bottom:1rem; display:none;"></div>
-        <section id="adminReportsSection" class="recent-scams">
-            <div id="adminReportsContainer" class="scam-grid">
-                <p style="grid-column:1/-1; text-align:center;">Loading...</p>
+
+        <section class="admin-kpis">
+            <article class="admin-kpi-card">
+                <div class="admin-kpi-label">Total Reports</div>
+                <div class="admin-kpi-value" id="kpiReports">-</div>
+            </article>
+            <article class="admin-kpi-card">
+                <div class="admin-kpi-label">Reports Without AI</div>
+                <div class="admin-kpi-value" id="kpiReportsWithoutAI">-</div>
+            </article>
+            <article class="admin-kpi-card">
+                <div class="admin-kpi-label">Total Users</div>
+                <div class="admin-kpi-value" id="kpiUsers">-</div>
+            </article>
+        </section>
+
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2>AI Operations</h2>
             </div>
+            <div class="admin-ai-controls">
+                <button id="rerunMissingAI" class="btn btn-submit">Re-Run AI For Missing Reports</button>
+                <button id="rerunAllAI" class="btn btn-reset">Re-Run AI For All Reports</button>
+                <input id="rerunLimit" class="admin-limit-input" type="number" min="1" max="500" placeholder="Limit (optional)">
+            </div>
+            <p id="aiOpsStatus" class="admin-muted">No AI jobs queued in this session.</p>
+        </section>
+
+        <section class="admin-portal-grid">
+            <article class="admin-panel" id="adminUsersPanel">
+                <div class="admin-panel-header">
+                    <h2>User Management</h2>
+                    <button id="refreshUsersBtn" class="btn btn-reset">Refresh Users</button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Username</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUsersTableBody">
+                            <tr><td colspan="4" class="admin-empty">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="admin-panel" id="adminReportsPanel">
+                <div class="admin-panel-header">
+                    <h2>Report Management</h2>
+                    <button id="refreshReportsBtn" class="btn btn-reset">Refresh Reports</button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Reporter</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminReportsTableBody">
+                            <tr><td colspan="5" class="admin-empty">Loading reports...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
         </section>
     </main>
 

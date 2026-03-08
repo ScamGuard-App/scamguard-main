@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "worker": "node worker.js"
+    "worker": "node worker.js",
+    "backfill:analysis": "node backfillAnalysis.js",
+    "backfill:analysis:dry": "node backfillAnalysis.js --dry-run"
   },
   "keywords": [],
   "author": "",
