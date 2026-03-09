@@ -1,10 +1,10 @@
 import supabase, { ensureSupabase } from './supabase.js';
 import { escapeHtml } from './utils.js';
-import { getApiCandidates } from './api.js';
+import { buildApiUrl, getApiCandidates } from './api.js';
 
 const endpoints = {
     dashboard: getApiCandidates('/admin/dashboard-data'),
-    rerun: getApiCandidates('/admin/rerun-ai'),
+    rerun: [buildApiUrl('/admin/rerun-ai')],
     users: getApiCandidates('/admin/users'),
     reports: getApiCandidates('/admin/reports'),
 };
@@ -47,11 +47,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function bindActions() {
-    document.getElementById('rerunMissingAI')?.addEventListener('click', async () => {
+    document.getElementById('rerunMissingAI')?.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         await triggerAiRerun('missing');
     });
 
-    document.getElementById('rerunAllAI')?.addEventListener('click', async () => {
+    document.getElementById('rerunAllAI')?.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         const yes = window.confirm('Re-run AI for ALL reports? This may take a while and consume API quota.');
         if (!yes) return;
         await triggerAiRerun('all');
@@ -70,6 +74,8 @@ function bindActions() {
 
 async function fetchWithFallback(urls, options = {}) {
     let lastError = null;
+    const method = String(options.method || 'GET').toUpperCase();
+    const isMutatingRequest = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
 
     const headers = {
         ...(options.headers || {}),
@@ -79,6 +85,11 @@ async function fetchWithFallback(urls, options = {}) {
     }
 
     for (const endpoint of urls) {
+        // For mutating requests, never hit relative fallback URLs on the static host.
+        if (isMutatingRequest && endpoint.startsWith('/')) {
+            continue;
+        }
+
         try {
             const response = await fetch(endpoint, {
                 ...options,

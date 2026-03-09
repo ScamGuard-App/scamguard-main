@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const pdfParse = require('pdf-parse');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -7,6 +8,9 @@ const LLM_PROVIDER = process.env.LLM_PROVIDER || 'ollama'; // 'ollama' or 'gemin
 const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
+const PDF_TEXT_MAX_CHARS = Number(process.env.PDF_TEXT_MAX_CHARS || 6000);
+const PDF_MAX_FILES = Number(process.env.PDF_MAX_FILES || 3);
+const IMAGE_MAX_FILES = Number(process.env.IMAGE_MAX_FILES || 6);
 const RISK_SCORE_BIAS = Number(process.env.RISK_SCORE_BIAS ?? -10);
 const RISK_SOFT_CAP_NO_EVIDENCE = Number(process.env.RISK_SOFT_CAP_NO_EVIDENCE ?? 78);
 const RISK_SOFT_CAP_WEAK_SIGNALS = Number(process.env.RISK_SOFT_CAP_WEAK_SIGNALS ?? 65);
@@ -150,6 +154,82 @@ async function downloadEvidenceFile(bucketName, filePath) {
     }
 }
 
+async function blobToBuffer(fileData) {
+    if (!fileData) return null;
+    if (Buffer.isBuffer(fileData)) return fileData;
+    if (typeof fileData.arrayBuffer === 'function') {
+        const arr = await fileData.arrayBuffer();
+        return Buffer.from(arr);
+    }
+    if (fileData instanceof ArrayBuffer) return Buffer.from(fileData);
+    return null;
+}
+
+function normalizeWhitespace(text) {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+async function prepareOllamaEvidence(evidencePaths) {
+    const imageBase64List = [];
+    const imageFileNames = [];
+    const pdfExtracts = [];
+
+    if (!Array.isArray(evidencePaths) || evidencePaths.length === 0) {
+        return { imageBase64List, imageFileNames, pdfExtracts };
+    }
+
+    let imageCount = 0;
+    let pdfCount = 0;
+
+    for (const filePath of evidencePaths) {
+        const mediaType = getMediaType(filePath);
+        const fileName = String(filePath || '').split('/').pop() || filePath;
+
+        if (mediaType.startsWith('image/')) {
+            if (imageCount >= IMAGE_MAX_FILES) continue;
+            const fileData = await downloadEvidenceFile('evidence', filePath);
+            const buffer = await blobToBuffer(fileData);
+            if (!buffer) {
+                console.warn(`[LLM] Could not read image evidence ${filePath}`);
+                continue;
+            }
+
+            imageBase64List.push(buffer.toString('base64'));
+            imageFileNames.push(fileName);
+            imageCount += 1;
+            continue;
+        }
+
+        if (mediaType === 'application/pdf') {
+            if (pdfCount >= PDF_MAX_FILES) continue;
+            const fileData = await downloadEvidenceFile('evidence', filePath);
+            const buffer = await blobToBuffer(fileData);
+            if (!buffer) {
+                console.warn(`[LLM] Could not read PDF evidence ${filePath}`);
+                continue;
+            }
+
+            try {
+                const parsed = await pdfParse(buffer);
+                const extractedText = normalizeWhitespace(parsed?.text || '');
+                if (!extractedText) {
+                    pdfExtracts.push({ fileName, text: '[No extractable text found. File may be scanned/image-only.]' });
+                } else {
+                    pdfExtracts.push({ fileName, text: extractedText.slice(0, PDF_TEXT_MAX_CHARS) });
+                }
+                pdfCount += 1;
+            } catch (err) {
+                console.warn(`[LLM] Failed to parse PDF ${filePath}: ${err.message}`);
+                pdfExtracts.push({ fileName, text: `[PDF extraction failed: ${err.message}]` });
+            }
+        }
+    }
+
+    return { imageBase64List, imageFileNames, pdfExtracts };
+}
+
 
 /**
  * Analyze a report using local Ollama or cloud Gemini (with fallback)
@@ -203,8 +283,11 @@ async function analyzeWithOllama(reportId, reportData, evidencePaths) {
     console.log(`[LLM] Querying Ollama at ${OLLAMA_URL}`);
 
     const evidenceContext = buildEvidenceContext(evidencePaths);
+    const preparedEvidence = await prepareOllamaEvidence(evidencePaths);
     const prompt = buildAnalysisPrompt(reportData, evidenceContext, {
-        evidenceInspectionMode: 'metadata_only',
+        evidenceInspectionMode: 'hybrid_local_pdf_text',
+        imageFileNames: preparedEvidence.imageFileNames,
+        pdfExtracts: preparedEvidence.pdfExtracts,
     });
 
     try {
@@ -223,6 +306,7 @@ async function analyzeWithOllama(reportId, reportData, evidencePaths) {
             body: JSON.stringify({
                 model: OLLAMA_MODEL,
                 prompt: prompt,
+                images: preparedEvidence.imageBase64List,
                 stream: false,
             }),
             timeout: 120000, // 2 min timeout for local LLM
@@ -313,14 +397,26 @@ async function analyzeWithGemini(reportId, reportData, evidencePaths) {
  */
 function buildAnalysisPrompt(reportData, evidenceContext, options = {}) {
     const mode = options.evidenceInspectionMode || 'full';
+    const imageFileNames = Array.isArray(options.imageFileNames) ? options.imageFileNames : [];
+    const pdfExtracts = Array.isArray(options.pdfExtracts) ? options.pdfExtracts : [];
     const evidenceHeader = evidenceContext.total > 0
         ? `Evidence files: ${evidenceContext.total} total (${evidenceContext.imageCount} images, ${evidenceContext.pdfCount} pdfs, ${evidenceContext.otherCount} other).`
         : 'Evidence files: none provided.';
     const evidenceNames = evidenceContext.fileNames.length > 0
         ? `Evidence filenames: ${evidenceContext.fileNames.join(', ')}`
         : '';
+    const imageEvidenceLine = imageFileNames.length > 0
+        ? `Image evidence passed directly to model: ${imageFileNames.join(', ')}`
+        : 'Image evidence passed directly to model: none';
+    const pdfEvidenceBlock = pdfExtracts.length > 0
+        ? `\n\nExtracted PDF text snippets:\n${pdfExtracts
+            .map((pdf, index) => `PDF ${index + 1} (${pdf.fileName}):\n${pdf.text}`)
+            .join('\n\n')}`
+        : '';
     const evidenceInstruction = mode === 'metadata_only'
         ? 'You cannot directly inspect attachment binaries in this run. Do not overstate certainty from evidence; explicitly lower confidence when evidence cannot be inspected.'
+        : mode === 'hybrid_local_pdf_text'
+            ? 'You can inspect image evidence directly. PDF files are provided as extracted text snippets (not full visual layout). Base your evidence analysis on both sources and mention uncertainty if extraction quality appears weak.'
         : 'You can inspect provided image/PDF evidence. Reference specific evidence observations and avoid generic statements.';
 
     return `Please analyze this scam report with the provided evidence:
@@ -332,6 +428,8 @@ ${reportData.scammer_name ? `**Scammer Name:** ${reportData.scammer_name}` : ''}
 ${reportData.phone ? `**Phone Number:** ${reportData.phone}` : ''}
 ${evidenceHeader}
 ${evidenceNames}
+${imageEvidenceLine}
+${pdfEvidenceBlock}
 
 Scoring rubric (important):
 - Start from 40 as a neutral baseline.
