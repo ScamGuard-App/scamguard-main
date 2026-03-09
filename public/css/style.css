@@ -217,8 +217,14 @@ nav .logo { margin-right: 12px; }
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
     gap: 1.5rem;
+}
+
+@media (max-width: 760px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .card,
@@ -246,18 +252,39 @@ nav .logo { margin-right: 12px; }
 }
 
 .card .stat {
-    font-size: 3rem; /* larger for visibility */
+    font-size: clamp(2rem, 6vw, 3rem); /* scales down on narrower cards */
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1.1;
-}
-
-.stats .card:nth-child(2) .stat {
-    font-size: clamp(1.8rem, 5vw, 3rem);
-    line-height: 1.15;
+    text-align: center;
+    max-width: 100%;
     overflow-wrap: anywhere;
     word-break: break-word;
     hyphens: auto;
+}
+
+.grid > .card:nth-child(-n + 2) {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 210px;
+}
+
+.grid > .card:nth-child(-n + 2) h3 {
+    justify-self: start;
+    width: 100%;
+    text-align: left;
+}
+
+.grid > .card:nth-child(-n + 2) .stat {
+    align-self: center;
+    justify-self: center;
+    width: 100%;
+    margin: 0;
+}
+
+.grid > .card:nth-child(2) .stat {
+    font-size: clamp(1.7rem, 5.2vw, 3rem);
+    line-height: 1.15;
 }
 
 /* recent scams section */
