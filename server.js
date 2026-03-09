@@ -20,11 +20,15 @@ const defaultAllowedOrigins = [
     'http://127.0.0.1:3000',
     'http://localhost:5500',
     'http://127.0.0.1:5500',
+    'https://scamguard-app.github.io',
 ];
 const configuredAllowedOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
 const allowedOrigins = configuredAllowedOrigins.length > 0
     ? configuredAllowedOrigins
     : defaultAllowedOrigins;
+const USE_REDIS_QUEUE = String(process.env.USE_REDIS_QUEUE || 'true').toLowerCase() !== 'false';
+const ENABLE_INLINE_ANALYSIS_FALLBACK = String(process.env.ENABLE_INLINE_ANALYSIS_FALLBACK || 'true').toLowerCase() !== 'false';
+const INLINE_ADMIN_RERUN_MAX = Number(process.env.INLINE_ADMIN_RERUN_MAX || 25);
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -50,13 +54,15 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize Redis queue for report analysis
-const reportAnalysisQueue = new Queue('report-analysis', {
-    redis: {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: process.env.REDIS_PORT || 6379,
-    },
-});
+// Initialize Redis queue for report analysis (optional).
+const reportAnalysisQueue = USE_REDIS_QUEUE
+    ? new Queue('report-analysis', {
+        redis: {
+            host: process.env.REDIS_HOST || '127.0.0.1',
+            port: process.env.REDIS_PORT || 6379,
+        },
+    })
+    : null;
 
 // Initialize Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -285,6 +291,52 @@ async function ensureAnalysisRowForReport(reportId) {
     if (insertError) throw insertError;
 }
 
+async function isQueueReady() {
+    if (!reportAnalysisQueue) return false;
+
+    try {
+        await withTimeout(
+            reportAnalysisQueue.isReady(),
+            1500,
+            'Redis queue readiness check timed out'
+        );
+        return true;
+    } catch (_err) {
+        return false;
+    }
+}
+
+async function processAnalysisInline(reportId) {
+    const { data: reportData, error: reportFetchError } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('report_id', reportId)
+        .single();
+
+    if (reportFetchError || !reportData) {
+        throw new Error(`Inline analysis could not fetch report: ${reportFetchError?.message || 'No data'}`);
+    }
+
+    const evidencePaths = parseEvidencePaths(reportData.evidence_url);
+    const analysisResult = await analyzeReport(reportId, reportData, evidencePaths);
+
+    const { error: updateError } = await supabase
+        .from('ai_analysis')
+        .update({
+            risk_score: analysisResult.risk_score || null,
+            type: 'scam_analysis',
+            summary: analysisResult.incident_summary || '',
+            analysis_json: analysisResult,
+        })
+        .eq('report_id', reportId);
+
+    if (updateError) {
+        throw new Error(`Inline analysis update failed: ${updateError.message}`);
+    }
+
+    return analysisResult;
+}
+
 // simple endpoint used by the client to delete the currently logged-in user.
 // the request is POST /delete-account with JSON { user_id: '...' }.
 // this handler uses the Supabase service-role key (read from .env) to call
@@ -370,11 +422,12 @@ app.post('/queue-analysis', async (req, res) => {
             console.log('[Server] Analysis record already exists for report:', report_id);
         }
 
-        // Add job to queue. If Redis/worker is unavailable, run analysis inline as fallback.
-        try {
+        const queueReady = await isQueueReady();
+
+        if (queueReady) {
             const job = await withTimeout(
                 reportAnalysisQueue.add({ reportId: report_id }, {
-                    attempts: 1,  // No retries - rate limit errors shouldn't auto-retry
+                    attempts: 1,
                     removeOnComplete: false,
                 }),
                 2000,
@@ -388,42 +441,38 @@ app.post('/queue-analysis', async (req, res) => {
                 jobId: job.id,
                 reportId: report_id,
             });
-        } catch (queueErr) {
-            console.warn('[Server] Queue unavailable, falling back to inline analysis:', queueErr.message);
+        }
 
-            const { data: reportData, error: reportFetchError } = await supabase
-                .from('reports')
-                .select('*')
-                .eq('report_id', report_id)
-                .single();
-
-            if (reportFetchError || !reportData) {
-                throw new Error(`Fallback failed to fetch report: ${reportFetchError?.message || 'No data'}`);
-            }
-
-            const evidencePaths = parseEvidencePaths(reportData.evidence_url);
-            const analysisResult = await analyzeReport(report_id, reportData, evidencePaths);
-
-            const { error: updateError } = await supabase
-                .from('ai_analysis')
-                .update({
-                    risk_score: analysisResult.risk_score || null,
-                    type: 'scam_analysis',
-                    summary: analysisResult.incident_summary || '',
-                    analysis_json: analysisResult,
-                })
-                .eq('report_id', report_id);
-
-            if (updateError) {
-                throw new Error(`Fallback update failed: ${updateError.message}`);
-            }
-
-            return res.json({
-                success: true,
-                mode: 'inline',
-                reportId: report_id,
+        if (!ENABLE_INLINE_ANALYSIS_FALLBACK) {
+            return res.status(503).json({
+                success: false,
+                error: 'AI queue unavailable and inline analysis fallback is disabled',
             });
         }
+
+        console.warn('[Server] Queue unavailable, running analysis inline in background');
+        setImmediate(async () => {
+            try {
+                await processAnalysisInline(report_id);
+            } catch (inlineErr) {
+                console.error(`[Server] Inline analysis failed for ${report_id}:`, inlineErr.message);
+                await supabase
+                    .from('ai_analysis')
+                    .update({
+                        analysis_json: {
+                            status: 'failed',
+                            error: inlineErr.message,
+                        },
+                    })
+                    .eq('report_id', report_id);
+            }
+        });
+
+        return res.status(202).json({
+            success: true,
+            mode: 'inline-background',
+            reportId: report_id,
+        });
     } catch (err) {
         console.error('[Server] Queue analysis error:', err);
         res.status(500).json({ error: 'Failed to queue analysis' });
@@ -597,28 +646,84 @@ app.post('/admin/rerun-ai', requireAdmin, async (req, res) => {
             });
         }
 
-        let queued = 0;
-        const failures = [];
-        for (const report of candidates) {
-            try {
-                await ensureAnalysisRowForReport(report.report_id);
-                await reportAnalysisQueue.add({ reportId: report.report_id }, {
-                    attempts: 1,
-                    removeOnComplete: false,
-                });
-                queued += 1;
-            } catch (queueErr) {
-                failures.push({ reportId: report.report_id, error: queueErr.message });
+        const queueReady = await isQueueReady();
+
+        if (queueReady) {
+            let queued = 0;
+            const failures = [];
+            for (const report of candidates) {
+                try {
+                    await ensureAnalysisRowForReport(report.report_id);
+                    await reportAnalysisQueue.add({ reportId: report.report_id }, {
+                        attempts: 1,
+                        removeOnComplete: false,
+                    });
+                    queued += 1;
+                } catch (queueErr) {
+                    failures.push({ reportId: report.report_id, error: queueErr.message });
+                }
             }
+
+            return res.json({
+                success: true,
+                mode,
+                executionMode: 'queued',
+                queued,
+                totalCandidates: candidates.length,
+                failed: failures.length,
+                failures,
+            });
         }
 
-        res.json({
+        if (!ENABLE_INLINE_ANALYSIS_FALLBACK) {
+            return res.status(503).json({
+                success: false,
+                mode,
+                totalCandidates: candidates.length,
+                queued: 0,
+                failed: candidates.length,
+                error: 'AI queue is unavailable and inline fallback is disabled',
+            });
+        }
+
+        const cap = Number.isFinite(INLINE_ADMIN_RERUN_MAX) && INLINE_ADMIN_RERUN_MAX > 0
+            ? Math.floor(INLINE_ADMIN_RERUN_MAX)
+            : 25;
+        const selected = candidates.slice(0, cap);
+        const skipped = Math.max(candidates.length - selected.length, 0);
+
+        for (const report of selected) {
+            await ensureAnalysisRowForReport(report.report_id);
+        }
+
+        setImmediate(async () => {
+            for (const report of selected) {
+                try {
+                    await processAnalysisInline(report.report_id);
+                } catch (inlineErr) {
+                    console.error(`[Server] Inline admin rerun failed for ${report.report_id}:`, inlineErr.message);
+                    await supabase
+                        .from('ai_analysis')
+                        .update({
+                            analysis_json: {
+                                status: 'failed',
+                                error: inlineErr.message,
+                            },
+                        })
+                        .eq('report_id', report.report_id);
+                }
+            }
+        });
+
+        res.status(202).json({
             success: true,
             mode,
-            queued,
+            executionMode: 'inline-background',
+            queued: selected.length,
             totalCandidates: candidates.length,
-            failed: failures.length,
-            failures,
+            failed: 0,
+            skipped,
+            note: skipped > 0 ? `Inline rerun capped at ${cap}. Re-run again to process remaining reports.` : null,
         });
     } catch (err) {
         console.error('[Server] admin rerun-ai error:', err);
