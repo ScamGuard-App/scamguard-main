@@ -146,12 +146,14 @@ async function triggerAiRerun(mode) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
+            keepalive: true,
         });
 
         if (!response.ok) throw new Error(payload.error || 'Failed to queue AI rerun');
 
         if (statusEl) {
-            statusEl.textContent = `Queued ${payload.queued}/${payload.totalCandidates} reports for AI re-run (${mode}). Failed: ${payload.failed}.`;
+            const executionMode = payload.executionMode || payload.mode || 'queued';
+            statusEl.textContent = `Queued ${payload.queued}/${payload.totalCandidates} reports for AI re-run (${mode}). Mode: ${executionMode}. Failed: ${payload.failed}.`;
         }
 
         await loadDashboardStats();

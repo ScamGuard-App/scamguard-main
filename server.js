@@ -646,59 +646,37 @@ app.post('/admin/rerun-ai', requireAdmin, async (req, res) => {
             });
         }
 
-        const queueReady = await isQueueReady();
+        const runRerunInBackground = async () => {
+            const queueReady = await isQueueReady();
 
-        if (queueReady) {
-            let queued = 0;
-            const failures = [];
-            for (const report of candidates) {
-                try {
-                    await ensureAnalysisRowForReport(report.report_id);
-                    await reportAnalysisQueue.add({ reportId: report.report_id }, {
-                        attempts: 1,
-                        removeOnComplete: false,
-                    });
-                    queued += 1;
-                } catch (queueErr) {
-                    failures.push({ reportId: report.report_id, error: queueErr.message });
+            if (queueReady) {
+                for (const report of candidates) {
+                    try {
+                        await ensureAnalysisRowForReport(report.report_id);
+                        await reportAnalysisQueue.add({ reportId: report.report_id }, {
+                            attempts: 1,
+                            removeOnComplete: false,
+                        });
+                    } catch (queueErr) {
+                        console.error(`[Server] Background queue rerun failed for ${report.report_id}:`, queueErr.message);
+                    }
                 }
+                return;
             }
 
-            return res.json({
-                success: true,
-                mode,
-                executionMode: 'queued',
-                queued,
-                totalCandidates: candidates.length,
-                failed: failures.length,
-                failures,
-            });
-        }
+            if (!ENABLE_INLINE_ANALYSIS_FALLBACK) {
+                console.warn('[Server] Skipping background inline rerun: fallback disabled');
+                return;
+            }
 
-        if (!ENABLE_INLINE_ANALYSIS_FALLBACK) {
-            return res.status(503).json({
-                success: false,
-                mode,
-                totalCandidates: candidates.length,
-                queued: 0,
-                failed: candidates.length,
-                error: 'AI queue is unavailable and inline fallback is disabled',
-            });
-        }
+            const cap = Number.isFinite(INLINE_ADMIN_RERUN_MAX) && INLINE_ADMIN_RERUN_MAX > 0
+                ? Math.floor(INLINE_ADMIN_RERUN_MAX)
+                : 25;
+            const selected = candidates.slice(0, cap);
 
-        const cap = Number.isFinite(INLINE_ADMIN_RERUN_MAX) && INLINE_ADMIN_RERUN_MAX > 0
-            ? Math.floor(INLINE_ADMIN_RERUN_MAX)
-            : 25;
-        const selected = candidates.slice(0, cap);
-        const skipped = Math.max(candidates.length - selected.length, 0);
-
-        for (const report of selected) {
-            await ensureAnalysisRowForReport(report.report_id);
-        }
-
-        setImmediate(async () => {
             for (const report of selected) {
                 try {
+                    await ensureAnalysisRowForReport(report.report_id);
                     await processAnalysisInline(report.report_id);
                 } catch (inlineErr) {
                     console.error(`[Server] Inline admin rerun failed for ${report.report_id}:`, inlineErr.message);
@@ -713,17 +691,23 @@ app.post('/admin/rerun-ai', requireAdmin, async (req, res) => {
                         .eq('report_id', report.report_id);
                 }
             }
+        };
+
+        // Always return quickly so frontend navigation does not cancel long-running rerun requests.
+        setImmediate(() => {
+            runRerunInBackground().catch((bgErr) => {
+                console.error('[Server] admin rerun-ai background task failed:', bgErr);
+            });
         });
 
-        res.status(202).json({
+        return res.status(202).json({
             success: true,
             mode,
-            executionMode: 'inline-background',
-            queued: selected.length,
+            executionMode: 'background',
+            queued: candidates.length,
             totalCandidates: candidates.length,
             failed: 0,
-            skipped,
-            note: skipped > 0 ? `Inline rerun capped at ${cap}. Re-run again to process remaining reports.` : null,
+            note: 'AI rerun accepted and started in background.',
         });
     } catch (err) {
         console.error('[Server] admin rerun-ai error:', err);
