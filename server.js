@@ -7,8 +7,43 @@ const Queue = require('bull');
 const { createClient } = require('@supabase/supabase-js');
 const { analyzeReport } = require('./llmAnalysis.js');
 
+function parseAllowedOrigins(raw) {
+    return String(raw || '')
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean);
+}
+
 const app = express();
-app.use(cors());
+const defaultAllowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+];
+const configuredAllowedOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
+const allowedOrigins = configuredAllowedOrigins.length > 0
+    ? configuredAllowedOrigins
+    : defaultAllowedOrigins;
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow server-to-server calls and tools that do not send an Origin header.
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(helmet({ contentSecurityPolicy: false }));
 
@@ -713,4 +748,7 @@ app.get(/.*/, (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Backend listening on port ${port}`));
+app.listen(port, () => {
+    console.log(`Backend listening on port ${port}`);
+    console.log('[Server] Allowed CORS origins:', allowedOrigins.join(', '));
+});

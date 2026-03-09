@@ -1,4 +1,5 @@
 import supabase, { ensureSupabase } from './supabase.js';
+import { getApiCandidates } from './api.js';
 
 // grab DOM elements once the document is ready
 const reportForm = document.getElementById('reportForm');
@@ -117,7 +118,7 @@ document.addEventListener('click', (e) => {
 function makeId() { return Math.random().toString(36).substr(2,9); }
 
 async function postQueueAnalysis(reportId) {
-    const endpoints = ['/queue-analysis', 'http://localhost:3000/queue-analysis'];
+    const endpoints = getApiCandidates('/queue-analysis');
     let lastError = null;
 
     for (const endpoint of endpoints) {
@@ -144,7 +145,7 @@ async function postQueueAnalysis(reportId) {
 }
 
 async function getAnalysisStatus(reportId) {
-    const endpoints = [`/analysis-status/${reportId}`, `http://localhost:3000/analysis-status/${reportId}`];
+    const endpoints = getApiCandidates(`/analysis-status/${reportId}`);
     let lastError = null;
 
     for (const endpoint of endpoints) {

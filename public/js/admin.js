@@ -1,11 +1,12 @@
 import supabase, { ensureSupabase } from './supabase.js';
 import { escapeHtml } from './utils.js';
+import { getApiCandidates } from './api.js';
 
 const endpoints = {
-    dashboard: ['/admin/dashboard-data', 'http://localhost:3000/admin/dashboard-data'],
-    rerun: ['/admin/rerun-ai', 'http://localhost:3000/admin/rerun-ai'],
-    users: ['/admin/users', 'http://localhost:3000/admin/users'],
-    reports: ['/admin/reports', 'http://localhost:3000/admin/reports'],
+    dashboard: getApiCandidates('/admin/dashboard-data'),
+    rerun: getApiCandidates('/admin/rerun-ai'),
+    users: getApiCandidates('/admin/users'),
+    reports: getApiCandidates('/admin/reports'),
 };
 
 let adminSupabase = null;

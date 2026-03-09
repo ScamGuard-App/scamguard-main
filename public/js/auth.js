@@ -1,5 +1,6 @@
 import supabase, { ensureSupabase } from './supabase.js';
 import { escapeHtml, getTimeAgo } from './utils.js';
+import { buildApiUrl } from './api.js';
 
 // element references
 const showSignUp = document.getElementById('showSignUp');
@@ -352,7 +353,7 @@ deleteAccountBtn.addEventListener('click', async e => {
     clearProfileMessages();
     try {
         const user = (await supabase.auth.getUser()).data.user;
-        const res = await fetch('/delete-account', {
+        const res = await fetch(buildApiUrl('/delete-account'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: user.id })

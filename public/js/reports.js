@@ -1,5 +1,6 @@
 import supabase, { ensureSupabase } from './supabase.js';
 import { escapeHtml } from './utils.js';
+import { getApiCandidates } from './api.js';
 
 let allReports = [];
 let usernameCache = {};
@@ -145,7 +146,7 @@ function setupEventListeners() {
 async function loadReports() {
     try {
         // Prefer backend endpoint so AI analysis is visible even when frontend RLS is restrictive.
-        const endpointCandidates = ['/reports-with-analysis', 'http://localhost:3000/reports-with-analysis'];
+        const endpointCandidates = getApiCandidates('/reports-with-analysis');
         for (const endpoint of endpointCandidates) {
             try {
                 const response = await fetch(endpoint);

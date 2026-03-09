@@ -11,8 +11,10 @@
  * });
  */
 
+import { RESOLVED_API_BASE_URL } from './api.js';
+
 export class AnalysisClient {
-    constructor(baseUrl = '') {
+    constructor(baseUrl = RESOLVED_API_BASE_URL) {
         this.baseUrl = baseUrl;
         this.pollIntervals = new Map();
     }
