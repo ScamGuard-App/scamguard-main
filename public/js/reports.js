@@ -351,7 +351,7 @@ function renderResults(results) {
     const tableBody = document.getElementById('tableBody');
 
     if (results.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #9ca3af;">No reports found. Try adjusting your search.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" class="reports-loading-cell">No reports found. Try adjusting your search.</td></tr>';
         return;
     }
 
@@ -366,20 +366,20 @@ function renderResults(results) {
         const riskLevel = getRiskLevel(report.aiAnalysis?.risk_score);
         const riskScore = toScoreNumber(report.aiAnalysis?.risk_score);
         const riskBadge = riskScore !== null
-            ? `<span class="risk-badge" style="background-color: ${riskLevel.color}; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold;">${riskLevel.emoji} ${riskScore}</span>`
-            : '<span style="color: #9ca3af; font-size: 12px;">⏳ Pending</span>';
+            ? `<span class="risk-badge risk-${riskLevel.className}">${riskLevel.emoji} ${riskScore}</span>`
+            : '<span class="risk-pending">⏳ Pending</span>';
         const isDeepLinkTarget = pendingReportId && String(report.report_id) === pendingReportId;
 
         return `
-            <tr class="${isDeepLinkTarget ? 'deep-link-target' : ''}" data-report-id="${escapeAttr(report.report_id)}" style="cursor: pointer;" onclick="openReportModal('${escapeAttr(report.report_id)}')">
-                <td style="max-width: 200px; word-break: break-word;">${escapeHtml(report.title || 'N/A')}</td>
-                <td><span style="background: rgba(196, 28, 59, 0.3); padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px;">${escapeHtml(report.type || 'Other')}</span></td>
+            <tr class="report-row ${isDeepLinkTarget ? 'deep-link-target' : ''}" data-report-id="${escapeAttr(report.report_id)}" onclick="openReportModal('${escapeAttr(report.report_id)}')">
+                <td class="reports-cell-title">${escapeHtml(report.title || 'N/A')}</td>
+                <td><span class="report-type-pill">${escapeHtml(report.type || 'Other')}</span></td>
                 <td>${riskBadge}</td>
                 <td>${escapeHtml(report.scammer_name || 'N/A')}</td>
                 <td>${escapeHtml(username)}</td>
                 <td>${date}</td>
-                <td style="pointer-events: auto;" onclick="event.stopPropagation();">
-                    ${hasEvidence ? `<button class="evidence-btn" onclick="event.stopPropagation(); openReportModal('${escapeAttr(report.report_id)}')"><i class="fas fa-file-alt"></i> View</button>` : '<span style="color: #6b7280;">None</span>'}
+                <td class="reports-cell-evidence" onclick="event.stopPropagation();">
+                    ${hasEvidence ? `<button class="evidence-btn" onclick="event.stopPropagation(); openReportModal('${escapeAttr(report.report_id)}')"><i class="fas fa-file-alt"></i> View</button>` : '<span class="reports-none">None</span>'}
                 </td>
             </tr>
         `;
@@ -387,12 +387,12 @@ function renderResults(results) {
 }
 
 function getRiskLevel(score) {
-    if (score === null || score === undefined) return { color: '#9ca3af', label: 'Pending', emoji: '⏳' };
-    if (score >= 80) return { color: '#dc2626', label: 'Critical', emoji: '🔴' };
-    if (score >= 60) return { color: '#f97316', label: 'High', emoji: '🟠' };
-    if (score >= 40) return { color: '#eab308', label: 'Moderate', emoji: '🟡' };
-    if (score >= 20) return { color: '#3b82f6', label: 'Low', emoji: '🔵' };
-    return { color: '#16a34a', label: 'Safe', emoji: '🟢' };
+    if (score === null || score === undefined) return { color: '#9ca3af', label: 'Pending', emoji: '⏳', className: 'pending' };
+    if (score >= 80) return { color: '#dc2626', label: 'Critical', emoji: '🔴', className: 'critical' };
+    if (score >= 60) return { color: '#f97316', label: 'High', emoji: '🟠', className: 'high' };
+    if (score >= 40) return { color: '#eab308', label: 'Moderate', emoji: '🟡', className: 'moderate' };
+    if (score >= 20) return { color: '#3b82f6', label: 'Low', emoji: '🔵', className: 'low' };
+    return { color: '#16a34a', label: 'Safe', emoji: '🟢', className: 'safe' };
 }
 
 window.openReportModal = function(reportId) {
@@ -436,7 +436,7 @@ window.openReportModal = function(reportId) {
     if (websiteText) {
         const safeLabel = escapeHtml(websiteText);
         const safeHref = escapeAttr(toWebsiteHref(websiteText));
-        websiteEl.innerHTML = `Website: <a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration-color: currentColor;">${safeLabel}</a>`;
+        websiteEl.innerHTML = `Website: <a class="modal-website-link" href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
     } else {
         websiteEl.textContent = 'Website: Not provided';
     }
@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function showNoResults(message) {
     const tableBody = document.getElementById('tableBody');
-    tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #9ca3af;">${escapeHtml(message)}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="6" class="reports-loading-cell">${escapeHtml(message)}</td></tr>`;
 }
 
 function resetAndReload() {

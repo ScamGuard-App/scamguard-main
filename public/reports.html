@@ -45,8 +45,8 @@
         <p>Search and explore reported scams to stay informed</p>
 
         <!-- Search & Filter Section -->
-        <div class="search-section" style="display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 12px; margin-bottom: 30px;">
-            <div class="form-group" style="margin-bottom: 0;">
+        <div class="search-section reports-search-grid">
+            <div class="form-group reports-search-field">
                 <label for="typeFilter">Scam Type</label>
                 <select id="typeFilter">
                     <option value="">-- All Types --</option>
@@ -63,20 +63,20 @@
                     <option value="other">Other</option>
                 </select>
             </div>
-            <div class="form-group" style="margin-bottom: 0;">
+            <div class="form-group reports-search-field">
                 <label for="searchInput">Search</label>
                 <input type="text" id="searchInput" placeholder="Company, website, title...">
             </div>
-            <button id="searchBtn" class="btn btn-submit" style="align-self: flex-end; height: 44px;">
+            <button id="searchBtn" class="btn btn-submit reports-search-btn">
                 <i class="fas fa-search"></i> Search
             </button>
-            <button id="refreshBtn" class="btn btn-reset" style="align-self: flex-end; height: 44px;">
+            <button id="refreshBtn" class="btn btn-reset reports-search-btn">
                 <i class="fas fa-sync-alt"></i> Reset
             </button>
         </div>
 
         <!-- Results Table -->
-        <div id="resultsContainer" style="overflow-x: auto;">
+        <div id="resultsContainer" class="reports-results-wrap">
             <table id="resultsTable" class="reports-table">
                 <thead>
                     <tr>
@@ -90,7 +90,7 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr><td colspan="7" style="text-align: center; padding: 20px; color: #9ca3af;">Loading reports...</td></tr>
+                    <tr><td colspan="7" class="reports-loading-cell">Loading reports...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -112,7 +112,7 @@
             <div class="modal-field">
                 <label>Scammer Name / Company</label>
                 <div class="modal-field-value" id="modalScammerName"></div>
-                <div style="margin-top: 6px; font-size: 13px; color: #9ca3af;" id="modalWebsite"></div>
+                <div class="modal-website" id="modalWebsite"></div>
             </div>
 
             <div class="modal-field">
@@ -127,15 +127,27 @@
                 </div>
             </div>
 
-            <div id="aiAnalysisSection" style="display: none; margin-bottom: 1.5rem;"></div>
+            <div id="aiAnalysisSection" class="ai-analysis-section"></div>
 
-            <div class="evidence-section" id="evidenceSection" style="display: none;">
+            <div class="evidence-section" id="evidenceSection">
                 <label>Evidence Files</label>
                 <div class="evidence-list" id="evidenceList"></div>
             </div>
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <a href="privacy.html">Privacy Policy</a>
+            <span aria-hidden="true">|</span>
+            <a href="https://github.com/ScamGuard-App/scamguard-main" target="_blank" rel="noopener noreferrer">Source Code</a>
+            <span aria-hidden="true">|</span>
+            <span class="site-footer-copy">ScamGuard, 2026</span>
+        </div>
+    </footer>
+
+    <!-- Load bg, supabase & accessibility -->
     <script src="js/starfield.js"></script>
     <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

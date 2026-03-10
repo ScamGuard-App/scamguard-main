@@ -515,7 +515,7 @@ nav .logo { margin-right: 12px; }
     margin-left: 10px;
 }
 
-/* Report Page Styles (moved from report.html) */
+/* Report Page Styles */
 
 .report-container {
     max-width: 800px;
@@ -534,7 +534,7 @@ nav .logo { margin-right: 12px; }
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .reports-table thead {
-    background: rgba(196, 28, 59, 1);
+    background: var(--accent);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 .reports-table th {
@@ -553,7 +553,7 @@ nav .logo { margin-right: 12px; }
     font-size: 14px;
 }
 .reports-table tbody tr:hover {
-    background: rgba(196, 28, 59, 0.1);
+    background: rgba(28, 115, 196, 0.1);
     cursor: pointer;
 }
 
@@ -563,7 +563,7 @@ nav .logo { margin-right: 12px; }
 }
 .evidence-btn {
     padding: 4px 8px;
-    background: rgba(196, 28, 59, 1);
+    background: var(--accent);
     color: white;
     border: none;
     border-radius: 4px;
@@ -572,7 +572,7 @@ nav .logo { margin-right: 12px; }
     transition: all 0.3s ease;
 }
 .evidence-btn:hover {
-    background: rgba(196, 28, 59, 1);
+    background: var(--accent-hover);
 }
 .evidence-btn:disabled {
     background: rgba(107, 114, 128, 0.6);
@@ -580,7 +580,7 @@ nav .logo { margin-right: 12px; }
 }
 .search-section select,
 .search-section input {
-    background: rgba(255, 255, 255, 0.05) !important;
+    background: var(--accent-hover) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #e5e7eb !important;
     padding: 10px 12px !important;
@@ -590,12 +590,104 @@ nav .logo { margin-right: 12px; }
 .search-section select:focus,
 .search-section input:focus {
     outline: none;
-    border-color: rgba(196, 28, 59, 0.5) !important;
-    background: rgba(196, 28, 59, 0.1) !important;
+    border-color: rgba(28, 143, 196, 0.5) !important;
+    background: rgba(28, 157, 196, 0.1) !important;
 }
 .search-section select option {
     background: #1f2937;
     color: #e5e7eb;
+}
+
+.reports-search-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.reports-search-field {
+    margin-bottom: 0;
+}
+
+.reports-search-btn {
+    align-self: flex-end;
+    height: 44px;
+}
+
+.reports-results-wrap {
+    overflow-x: auto;
+}
+
+.reports-loading-cell {
+    text-align: center;
+    padding: 20px;
+    color: #9ca3af;
+}
+
+.modal-website {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+.modal-website-link {
+    color: inherit;
+    text-decoration-color: currentColor;
+}
+
+.ai-analysis-section {
+    display: none;
+    margin-bottom: 1.5rem;
+}
+
+#evidenceSection {
+    display: none;
+}
+
+.report-row {
+    cursor: pointer;
+}
+
+.reports-cell-title {
+    max-width: 200px;
+    word-break: break-word;
+}
+
+.report-type-pill {
+    background: rgba(96, 174, 219, 0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    font-size: 12px;
+    color: #bfdbfe;
+}
+
+.reports-cell-evidence {
+    pointer-events: auto;
+}
+
+.reports-none {
+    color: #6b7280;
+}
+
+.risk-badge {
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    font-weight: 700;
+}
+
+.risk-badge.risk-critical { background: #dc2626; }
+.risk-badge.risk-high { background: #f97316; }
+.risk-badge.risk-moderate { background: #eab308; }
+.risk-badge.risk-low { background: #3b82f6; }
+.risk-badge.risk-safe { background: #16a34a; }
+.risk-badge.risk-pending { background: #6b7280; }
+
+.risk-pending {
+    color: #9ca3af;
+    font-size: 12px;
 }
 
 /* Modal Styles */
@@ -653,7 +745,7 @@ nav .logo { margin-right: 12px; }
     padding-bottom: 16px;
 }
 
-/* Admin dashboard */
+/* Admin page styles */
 .admin-dashboard {
     max-width: 1200px;
     margin: 0 auto;
@@ -774,6 +866,142 @@ nav .logo { margin-right: 12px; }
     padding: 1rem;
 }
 
+/* Privacy policy page */
+.policy-container {
+    max-width: 980px;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.policy-hero {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-left: 4px solid var(--accent);
+    border-radius: 1rem;
+    padding: 1.25rem 1.35rem;
+}
+
+.policy-kicker {
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    margin-bottom: 0.35rem;
+}
+
+.policy-hero h1 {
+    color: var(--text-primary);
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    margin-bottom: 0.6rem;
+}
+
+.policy-hero p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.policy-meta {
+    margin-top: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+}
+
+.policy-meta span {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+    color: #d1d5db;
+}
+
+.policy-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    padding: 1.15rem 1.25rem;
+    line-height: 1.65;
+}
+
+.policy-card h2 {
+    color: var(--accent);
+    font-size: 1.08rem;
+    margin-bottom: 0.55rem;
+}
+
+.policy-card p,
+.policy-card li {
+    color: #d1d5db;
+}
+
+.policy-card ul,
+.policy-card ol {
+    margin-left: 1.25rem;
+}
+
+.policy-card li + li {
+    margin-top: 0.3rem;
+}
+
+.policy-notice {
+    border-left: 4px solid #f59e0b;
+}
+
+.policy-toc ol {
+    columns: 2;
+    column-gap: 2rem;
+}
+
+.policy-link,
+.policy-toc a {
+    color: #93c5fd;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.policy-link:hover,
+.policy-toc a:hover {
+    color: #bfdbfe;
+}
+
+/* Global footer */
+.site-footer {
+    margin: 2rem auto 0;
+    max-width: 1100px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.9rem;
+    padding: 0.8rem 1rem;
+}
+
+.site-footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.site-footer a {
+    color: #93c5fd;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.site-footer a:hover {
+    color: #bfdbfe;
+}
+
+.site-footer-copy {
+    color: #d1d5db;
+}
+
 @media (max-width: 980px) {
     .admin-kpis {
         grid-template-columns: 1fr;
@@ -781,6 +1009,18 @@ nav .logo { margin-right: 12px; }
 
     .admin-portal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .policy-toc ol {
+        columns: 1;
+    }
+
+    .reports-search-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .reports-search-btn {
+        width: 100%;
     }
 }
 .modal-title-section {

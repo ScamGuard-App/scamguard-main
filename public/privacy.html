@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Privacy Policy - Scamguard</title>
+
+    <!-- Accessibility settings check -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('scamguardAccessibilitySettings')
+                    || localStorage.getItem('accountAccessibilitySettings');
+                if (!saved) return;
+                var settings = JSON.parse(saved);
+                if (settings.monospace) document.documentElement.setAttribute('data-a11y-font', 'mono');
+                if (settings.disableBackground) document.documentElement.setAttribute('data-a11y-starfield-disabled', 'true');
+                if (settings.reduceMotion) document.documentElement.setAttribute('data-a11y-reduce-motion', 'true');
+            } catch (e) {
+                // Ignore malformed values and continue with defaults.
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div id="stars" aria-hidden="true"></div>
+    <div id="stars2" aria-hidden="true"></div>
+    <div id="stars3" aria-hidden="true"></div>
+
+    <nav>
+        <div class="logo">
+            <i class="fas fa-exclamation-circle" style="color: #c41c3b;"></i>
+        </div>
+        <div class="links">
+            <a href="index.html" class="nav-link">Home</a>
+            <a href="reports.html" class="nav-link">Search</a>
+            <a href="learn.html" class="nav-link">Learn</a>
+            <a href="report.html" class="nav-link">Submit Report</a>
+            <a href="privacy.html" class="active nav-link">Privacy</a>
+        </div>
+    </nav>
+
+    <main class="policy-container">
+        <header class="policy-hero">
+            <p class="policy-kicker">Legal</p>
+            <h1>Privacy Policy</h1>
+            <p>
+                Below is a complete copy of our privacy policy, in conjunction with and adherence to relevant laws, regulations and guidances.
+            </p>
+            <div class="policy-meta">
+                <span><strong>Last updated:</strong> [10 March 2025]</span>
+                <span><strong>Controller:</strong> [Joshua Stangoe]</span>
+                <span><strong>Contact:</strong> <a class="policy-link" href="mailto:stangoejoshua@gmail.com">stangoejoshua@gmail.com</a></span>
+            </div>
+        </header>
+
+        <section class="policy-card policy-toc" aria-labelledby="tocTitle">
+            <h2 id="tocTitle">Contents</h2>
+            <ol>
+                <li><a href="#who-i-am">Who I Am</a></li>
+                <li><a href="#lawful-basis">Lawful Bases For Processing</a></li>
+                <li><a href="#data-i-collect">Data I Collect</a></li>
+                <li><a href="#how-i-use-data">How I Use Your Data</a></li>
+                <li><a href="#sharing">Data Sharing And Processors</a></li>
+                <li><a href="#international-transfers">International Transfers</a></li>
+                <li><a href="#retention">Retention Periods</a></li>
+                <li><a href="#security">Data Security</a></li>
+                <li><a href="#rights">Your Rights (UK GDPR)</a></li>
+                <li><a href="#cookies">Cookies And Tracking</a></li>
+                <li><a href="#changes">Changes To This Policy</a></li>
+                <li><a href="#contact">Contact And Complaints</a></li>
+            </ol>
+        </section>
+
+        <section id="who-i-am" class="policy-card">
+            <h2>1. Who I Am</h2>
+            <p>
+                I (Scamguard) operate as a crowdsourced scam intelligence platform, allowing users to submit and search scam reports.
+                As the sole operative, Joshua Stangoe, I am responsible for handling your personal data in accordance with this policy and applicable UK data protection laws.
+            </p>
+        </section>
+
+        <section id="lawful-basis" class="policy-card">
+            <h2>2. Lawful Bases For Processing</h2>
+            <p>
+                I process your personal data based on the following lawful bases under UK GDPR:
+            </p>
+            <ul>
+                <li><strong>Account and authentication:</strong> Upon registration, users submit their email address (used for verification) and create a password to access their account.
+                No further data is collected with regards to IP addresses, Full Name, or any protected characteristics.</li>
+                <li><strong>Scam report submission and moderation:</strong> Users are able to submit reports when logged in, which can be submitted anonymously.
+                These reports are used to identify and track scam activity, improve platform functionality, and assist other users in staying up to date.</li>
+                <li><strong>Security, abuse prevention, fraud detection:</strong> ScamGuard uses email verification to ensure the legitimacy of user accounts and to 
+                    prevent fraudulent activity.</li>
+                <li><strong>Analytics/product improvement:</strong> I do not store analytics data that can identify individual users, nor do I currently 
+                    track user behaviour on the site.</li>
+            </ul>
+        </section>
+
+        <section id="data-i-collect" class="policy-card">
+            <h2>3. Data I Collect</h2>
+            <ul>
+                <li><strong>Identity data:</strong> Username, email, password</li>
+                <li><strong>User-submitted content:</strong> Scam report titles, descriptions, user-submitted websites, user-submitted usernames/scammer names.</li>
+                <li><strong>Technical data:</strong> Logs are maintained which may include IP addresses, browser information, and other technical details necessary for security and troubleshooting.</li>
+                <li><strong>Admin and audit data:</strong> Standard infrastructure/service logs may still process technical metadata (e.g., IP, user-agent, timestamps)</li>
+            </ul>
+        </section>
+
+        <section id="how-i-use-data" class="policy-card">
+            <h2>4. How I Use Your Data</h2>
+            <p>[Explain each processing activity clearly and in plain English.]</p>
+            <ul>
+                <li>Operate accounts and provide platform features.</li>
+                <li>Publish/search scam intelligence records.</li>
+                <li>Run AI-assisted analysis workflows to classify risk.</li>
+                <li>Detect misuse, protect system integrity, and enforce terms.</li>
+                <li>Respond to legal requests and regulatory obligations.</li>
+            </ul>
+        </section>
+
+        <section id="sharing" class="policy-card">
+            <h2>5. Data Sharing And Processors</h2>
+            <ul>
+                <li><strong>Hosting provider:</strong> Github Pages</li>
+                <li><strong>Database/auth provider:</strong> Supabase</li>
+                <li><strong>AI provider(s):</strong> Local Ollama AI, running Qwen2.5vl:7b</li>
+                <li><strong>Backend provider:</strong> Render</li>
+            </ul>
+            <p>Under no circumstance will data ever be sold or shared with third parties for marketing purposes.
+                Where required under legal guidance, I may share data with law enforcement or regulatory authorities to assist with investigations into fraudulent activity.
+            </p>
+        </section>
+
+        <section id="international-transfers" class="policy-card">
+            <h2>6. International Transfers</h2>
+            <p>
+                Data shall only leave the UK to be processed by the server providers, based offshores in Germany. 
+                These are servers maintained in compliance with EU data protection standards and accessed solely by myself.
+            </p>
+        </section>
+
+        <section id="retention" class="policy-card">
+            <h2>7. Retention Periods</h2>
+            <ul>
+                <li><strong>Account records:</strong> Account records are kept until deleted by the user to maintain a comprehensive archive, 
+                    however upon either user request or inactivity for 6 months, the account shall be closed.</li>
+                <li><strong>Scam report content:</strong> Scam report content shall be maintained indefinitely, however should an account be
+                deleted or closed, the reports will be anonymised.</li>
+                <li><strong>Evidence uploads:</strong> In order to provide a comprehensive archive, user uploads are saved
+                indefinitely unless requested by the user with valid security concerns.</li>
+                <li><strong>Security and audit logs:</strong> Logs are maintained for 14 days under provider constraints.</li>
+            </ul>
+        </section>
+
+        <section id="security" class="policy-card">
+            <h2>8. Data Security</h2>
+            <p>Sensitive user data is encrypted such as passwords used for login, and through "security by design" practices, unnecessary data is not collected.
+                Access to data is strictly limited to myself as the sole operator, and all processing is done in compliance with industry best practices for security.
+                In the event of a data breach, I will promptly notify affected users and relevant authorities as required by law.
+            </p>
+        </section>
+
+        <section id="rights" class="policy-card">
+            <h2>9. Your Rights (UK GDPR)</h2>
+            <p>You may have rights to:</p>
+            <ul>
+                <li>Access your personal data.</li>
+                <li>Correct inaccurate data.</li>
+                <li>Request erasure in certain cases.</li>
+                <li>Restrict or object to processing in certain cases.</li>
+                <li>Data portability where applicable.</li>
+                <li>Withdraw consent where processing relies on consent.</li>
+            </ul>
+            <p>Users are able to contact me at stangoejoshua@gmail.com to request, correct, restrict, erase or delete data.
+                Data is only collected upon user submission upon creating an account or submitting a report, and as such consent is assumed upon submission of data.
+            </p>
+        </section>
+
+        <section id="cookies" class="policy-card">
+            <h2>10. Cookies And Tracking</h2>
+            <p>Cookies are only used to identify and preserve user sessions. No further cookies are used, such as for tracking or marketing purposes.</p>
+        </section>
+
+        <section id="changes" class="policy-card">
+            <h2>12. Changes To This Policy</h2>
+            <p>We may update this privacy policy from time to time. Any changes will be posted on this page with an updated revision date.</p>
+        </section>
+
+        <section id="contact" class="policy-card">
+            <h2>13. Contact And Complaints</h2>
+            <p>
+                Contact us at: <a class="policy-link" href="mailto:stangoejoshua@gmail.com">stangoejoshua@gmail.com</a>
+            </p>
+            <p>
+                UK users may also contact the Information Commissioner's Office (ICO):
+                <a class="policy-link" href="https://ico.org.uk" target="_blank" rel="noopener noreferrer">ico.org.uk</a>
+            </p>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <a href="privacy.html">Privacy Policy</a>
+            <span aria-hidden="true">|</span>
+            <a href="https://github.com/ScamGuard-App/scamguard-main" target="_blank" rel="noopener noreferrer">Source Code</a>
+            <span aria-hidden="true">|</span>
+            <span class="site-footer-copy">ScamGuard, 2026</span>
+        </div>
+    </footer>
+
+    <!-- Load bg, supabase & accessibility -->
+    <script src="js/starfield.js"></script>
+    <script src="js/accountAccessibility.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/supabase.js?v=20260309"></script>
+    <script type="module" src="js/nav.js?v=20260309"></script>
+</body>
+</html>
