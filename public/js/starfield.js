@@ -20,6 +20,10 @@
   }
 
   function applyStarfield() {
+    if (document.documentElement.hasAttribute('data-a11y-starfield-disabled')) {
+      return;
+    }
+
     const root = document.documentElement;
     root.style.setProperty('--stars-small', buildShadows(STAR_COUNTS.small));
     root.style.setProperty('--stars-medium', buildShadows(STAR_COUNTS.medium));

@@ -10,6 +10,8 @@
 */
 :root {
     --accent: #60aedb;
+    --font-family-base: "Work Sans", sans-serif;
+    --font-family-mono: Consolas, "Courier New", monospace;
     --text-primary: #e5e7eb;
     --text-secondary: #9ca3af;
     --bg-gradient: linear-gradient(135deg, #252525 25%, #181818 60%, #0a0a0a 100%);
@@ -44,7 +46,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: "Work Sans", sans-serif;
+    font-family: var(--font-family-base);
 }
 
 body {
@@ -957,7 +959,7 @@ nav .logo { margin-right: 12px; }
     border: 1px solid var(--glass-border);
     border-radius: 6px;
     color: var(--text-primary);
-    font-family: "Work Sans", sans-serif;
+    font-family: var(--font-family-base);
     font-size: 0.95rem;
     transition: all 0.3s ease;
     box-sizing: border-box;
@@ -997,6 +999,60 @@ nav .logo { margin-right: 12px; }
     margin: 0 auto;
     padding: 40px 20px;
     animation: fadeIn 0.4s ease;
+}
+
+.a11y-controls {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-left: 4px solid var(--accent);
+    border-radius: 1rem;
+    padding: 1rem 1.1rem;
+    margin-top: 1.15rem;
+}
+
+.a11y-controls h2,
+.a11y-controls h3 {
+    font-size: 1rem;
+    margin-bottom: 0.7rem;
+    color: var(--accent);
+}
+
+.a11y-option {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.a11y-option:last-child {
+    margin-bottom: 0;
+}
+
+.a11y-option input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+}
+
+html[data-a11y-font] {
+    --font-family-base: var(--font-family-mono);
+}
+
+html[data-a11y-starfield-disabled] #stars,
+html[data-a11y-starfield-disabled] #stars2,
+html[data-a11y-starfield-disabled] #stars3 {
+    display: none !important;
+}
+
+html[data-a11y-starfield-disabled] body {
+    background: #10151f;
+}
+
+html[data-a11y-reduce-motion] *,
+html[data-a11y-reduce-motion] *::before,
+html[data-a11y-reduce-motion] *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
 }
 
 .auth-toggle {
@@ -1151,7 +1207,7 @@ nav .logo { margin-right: 12px; }
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-family: "Work Sans", sans-serif;
+    font-family: var(--font-family-base);
 }
 
 .btn-submit {

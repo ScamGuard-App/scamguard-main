@@ -6,6 +6,21 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Scamguard</title>
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('scamguardAccessibilitySettings')
+                    || localStorage.getItem('accountAccessibilitySettings');
+                if (!saved) return;
+                var settings = JSON.parse(saved);
+                if (settings.monospace) document.documentElement.setAttribute('data-a11y-font', 'mono');
+                if (settings.disableBackground) document.documentElement.setAttribute('data-a11y-starfield-disabled', 'true');
+                if (settings.reduceMotion) document.documentElement.setAttribute('data-a11y-reduce-motion', 'true');
+            } catch (e) {
+                // Ignore malformed values and continue with defaults.
+            }
+        })();
+    </script>
 </head>
 <body>
     <div id="stars" aria-hidden="true"></div>
@@ -49,6 +64,7 @@
     </main>
 
     <script src="js/starfield.js"></script>
+    <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/supabase.js?v=20260309"></script>

@@ -6,8 +6,29 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Account - Scamguard</title>
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('scamguardAccessibilitySettings')
+                    || localStorage.getItem('accountAccessibilitySettings');
+                if (!saved) return;
+                var settings = JSON.parse(saved);
+                if (settings.monospace) {
+                    document.documentElement.setAttribute('data-a11y-font', 'mono');
+                }
+                if (settings.disableBackground) {
+                    document.documentElement.setAttribute('data-a11y-starfield-disabled', 'true');
+                }
+                if (settings.reduceMotion) {
+                    document.documentElement.setAttribute('data-a11y-reduce-motion', 'true');
+                }
+            } catch (e) {
+                // Ignore malformed values and continue with defaults.
+            }
+        })();
+    </script>
 </head>
-<body>
+<body class="account-page">
     <div id="stars" aria-hidden="true"></div>
     <div id="stars2" aria-hidden="true"></div>
     <div id="stars3" aria-hidden="true"></div>
@@ -106,6 +127,21 @@
             <div class="button-group" style="margin-top:1rem;">
                 <button id="adminPortalBtn" class="btn btn-submit hidden">Admin Portal</button>
             </div>
+            <section class="a11y-controls" aria-labelledby="a11yControlsTitle">
+                <h3 id="a11yControlsTitle">Accessibility</h3>
+                <div class="a11y-option">
+                    <input type="checkbox" id="a11yMonospace">
+                    <label for="a11yMonospace">Use monospace font</label>
+                </div>
+                <div class="a11y-option">
+                    <input type="checkbox" id="a11yDisableBackground">
+                    <label for="a11yDisableBackground">Disable background animation</label>
+                </div>
+                <div class="a11y-option">
+                    <input type="checkbox" id="a11yReduceMotion">
+                    <label for="a11yReduceMotion">Reduce motion and transitions</label>
+                </div>
+            </section>
         </div>
         <!-- user's own reports -->
         <div id="userReportsSection" class="auth-form hidden" style="margin-top:2rem;">
@@ -117,6 +153,7 @@
     </main>
 
     <script src="js/starfield.js"></script>
+    <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="js/supabase.js?v=20260309"></script>
     <script type="module" src="js/nav.js?v=20260309"></script>
