@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Account - Scamguard</title>
+    
+    <!-- Accessibility settings check -->
     <script>
         (function () {
             try {
@@ -50,6 +52,7 @@
             <button id="showLogin">Log&nbsp;In</button>
         </div>
 
+        <!-- Sign-up form -->
         <form id="signUpForm" class="auth-form">
             <div id="signUpMsg" class="auth-message"></div>
             <div id="signUpError" class="auth-error"></div>
@@ -70,6 +73,7 @@
             </div>
         </form>
 
+        <!-- Sign-in form -->
         <form id="loginForm" class="auth-form hidden">
             <div id="loginMsg" class="auth-message"></div>
             <div id="loginError" class="auth-error"></div>
@@ -152,6 +156,7 @@
         </div>
     </main>
 
+    <!-- Load bg, supabase & accessibility -->
     <script src="js/starfield.js"></script>
     <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

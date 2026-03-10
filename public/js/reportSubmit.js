@@ -215,6 +215,12 @@ function startAnalysisStatusPolling(reportId) {
     }, 4000);
 }
 
+function normalizeWebsiteInput(rawValue) {
+    const trimmed = String(rawValue || '').trim();
+    if (!trimmed) return '';
+    return trimmed.replace(/^www\./i, 'https://www.');
+}
+
 reportForm.addEventListener('submit', async e => {
     e.preventDefault();
     clearMessages();
@@ -233,12 +239,12 @@ reportForm.addEventListener('submit', async e => {
         return;
     }
 
-    let phoneVal = document.getElementById('phone').value || '';
-    // strip non-digits, convert to number if possible
-    phoneVal = phoneVal.replace(/\D/g, '');
+    const websiteInput = document.getElementById('website') || document.getElementById('phone');
+    const websiteVal = normalizeWebsiteInput(websiteInput?.value || '');
     const payload = {
         user_id: session.user.id,
-        phone: phoneVal ? parseInt(phoneVal, 10) : null,
+        phone: null,
+        website: websiteVal || null,
         title: document.getElementById('title').value,
         scammer_name: document.getElementById('scammerName')?.value || null,
         type: document.getElementById('type').value,
@@ -247,7 +253,7 @@ reportForm.addEventListener('submit', async e => {
     };
 
     try {
-        // upload evidence files to the 'evidence' bucket but first verify magic numbers
+        // upload evidence files to the 'evidence' bucket but first verify magic numbers for polyglot attacks
         const evidencePaths = [];
         if (uploadedFiles.length > 0) {
             for (let file of uploadedFiles) {

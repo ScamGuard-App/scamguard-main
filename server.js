@@ -29,6 +29,8 @@ const allowedOrigins = configuredAllowedOrigins.length > 0
 const USE_REDIS_QUEUE = String(process.env.USE_REDIS_QUEUE || 'true').toLowerCase() !== 'false';
 const ENABLE_INLINE_ANALYSIS_FALLBACK = String(process.env.ENABLE_INLINE_ANALYSIS_FALLBACK || 'true').toLowerCase() !== 'false';
 const INLINE_ADMIN_RERUN_MAX = Number(process.env.INLINE_ADMIN_RERUN_MAX || 25);
+const LLM_PROVIDER = String(process.env.LLM_PROVIDER || 'ollama').toLowerCase();
+const OLLAMA_URL = String(process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -392,16 +394,23 @@ app.post('/queue-analysis', async (req, res) => {
         }
         
         // Check if analysis already exists for this report
-        const { data: existing, error: checkError } = await supabase
+        const { data: existingRows, error: checkError } = await supabase
             .from('ai_analysis')
             .select('id')
             .eq('report_id', report_id)
-            .single();
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        const existing = (existingRows && existingRows.length > 0) ? existingRows[0] : null;
 
         console.log('[Server] Existing analysis check:', existing, checkError);
 
-        // Only insert if it doesn't exist
-        if (!existing && checkError?.code === 'PGRST116') {
+        if (checkError) {
+            throw checkError;
+        }
+
+        // Only insert if no analysis row exists yet.
+        if (!existing) {
             console.log('[Server] Creating new ai_analysis record for report:', report_id);
             const { error: insertError, data: insertData } = await supabase
                 .from('ai_analysis')
@@ -492,29 +501,34 @@ app.get('/analysis-status/:report_id', async (req, res) => {
             .from('ai_analysis')
             .select('*')
             .eq('report_id', report_id)
-            .single();
+            .order('created_at', { ascending: false });
 
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
+        if (error) throw error;
 
-        if (!data) {
+        if (!data || data.length === 0) {
             return res.json({
                 status: 'not_started',
                 report_id,
             });
         }
 
+        let best = null;
+        for (const row of data) {
+            best = pickBestAnalysisRecord(best, normalizeAnalysisRecord(row));
+        }
+
         // Determine status based on content
         let status = 'pending';
-        if (data.analysis_json?.error) {
+        if (best?.analysis_json?.error) {
             status = 'failed';
-        } else if (data.risk_score !== null && data.summary) {
+        } else if (hasUsableAnalysis(best)) {
             status = 'completed';
         }
 
         res.json({
             status,
             report_id,
-            analysis: data,
+            analysis: best,
         });
     } catch (err) {
         console.error('[Server] Analysis status error:', err);
@@ -712,6 +726,100 @@ app.post('/admin/rerun-ai', requireAdmin, async (req, res) => {
     } catch (err) {
         console.error('[Server] admin rerun-ai error:', err);
         res.status(500).json({ error: 'Failed to queue AI reruns' });
+    }
+});
+
+/**
+ * Admin: AI diagnostics snapshot (provider config, reachability, queue state, recent errors).
+ */
+app.get('/admin/ai-diagnostics', requireAdmin, async (req, res) => {
+    try {
+        const diagnostics = {
+            provider: LLM_PROVIDER,
+            queueReady: false,
+            inlineFallbackEnabled: ENABLE_INLINE_ANALYSIS_FALLBACK,
+            providerReachable: null,
+            providerMessage: '',
+            recentFailures: [],
+            checkedAt: new Date().toISOString(),
+        };
+
+        diagnostics.queueReady = await isQueueReady();
+
+        if (LLM_PROVIDER === 'ollama') {
+            try {
+                const response = await withTimeout(
+                    fetch(`${OLLAMA_URL}/api/tags`),
+                    5000,
+                    'Ollama connectivity check timed out'
+                );
+                diagnostics.providerReachable = response.ok;
+                diagnostics.providerMessage = response.ok
+                    ? `Ollama reachable at ${OLLAMA_URL}`
+                    : `Ollama returned HTTP ${response.status} at ${OLLAMA_URL}`;
+            } catch (err) {
+                diagnostics.providerReachable = false;
+                diagnostics.providerMessage = `Ollama check failed at ${OLLAMA_URL}: ${err.message}`;
+            }
+        } else if (LLM_PROVIDER === 'gemini') {
+            const hasKey = Boolean(process.env.GOOGLE_API_KEY);
+            diagnostics.providerReachable = hasKey;
+            diagnostics.providerMessage = hasKey
+                ? 'Gemini selected and GOOGLE_API_KEY is present'
+                : 'Gemini selected but GOOGLE_API_KEY is missing';
+        } else {
+            diagnostics.providerReachable = false;
+            diagnostics.providerMessage = `Unknown LLM_PROVIDER: ${LLM_PROVIDER}`;
+        }
+
+        // Pull recent analysis rows and surface failed/error records.
+        const { data: analyses, error: analysisError } = await supabase
+            .from('ai_analysis')
+            .select('report_id, created_at, analysis_json')
+            .order('created_at', { ascending: false })
+            .limit(80);
+
+        if (analysisError) throw analysisError;
+
+        const failedRows = (analyses || [])
+            .map((row) => {
+                const parsed = parseAnalysisJson(row.analysis_json) || {};
+                const status = String(parsed.status || '').toLowerCase();
+                const errMessage = String(parsed.error || '').trim();
+                if (status !== 'failed' && !errMessage) return null;
+                return {
+                    report_id: row.report_id,
+                    created_at: row.created_at,
+                    status: status || 'failed',
+                    error: errMessage || 'Unknown analysis error',
+                };
+            })
+            .filter(Boolean)
+            .slice(0, 8);
+
+        const ids = [...new Set(failedRows.map((r) => r.report_id).filter(Boolean))];
+        const reportTitles = {};
+        if (ids.length > 0) {
+            const { data: reports, error: reportError } = await supabase
+                .from('reports')
+                .select('report_id, title')
+                .in('report_id', ids);
+            if (!reportError) {
+                (reports || []).forEach((r) => {
+                    reportTitles[r.report_id] = r.title || null;
+                });
+            }
+        }
+
+        diagnostics.recentFailures = failedRows.map((row) => ({
+            ...row,
+            title: reportTitles[row.report_id] || null,
+        }));
+
+        res.json({ success: true, diagnostics });
+    } catch (err) {
+        console.error('[Server] admin ai-diagnostics error:', err);
+        res.status(500).json({ error: `Failed to run AI diagnostics: ${err.message}` });
     }
 });
 

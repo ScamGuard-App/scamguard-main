@@ -208,8 +208,8 @@ function createScamCard(report) {
         </div>
         <div class="scam-details">
             <div class="detail-row">
-                <span class="label">Contact Info:</span>
-                <span class="value">${escapeHtml(report.phone || report.email || report.contact_info || 'N/A')}</span>
+                <span class="label">Website:</span>
+                <span class="value">${escapeHtml(report.website || report.contact_info || report.phone || report.email || 'N/A')}</span>
             </div>
             <div class="detail-row">
                 <span class="label">Scam Type:</span>

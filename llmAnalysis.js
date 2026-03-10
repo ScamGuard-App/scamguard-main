@@ -171,6 +171,19 @@ function normalizeWhitespace(text) {
         .trim();
 }
 
+function isLikelyNetworkFetchError(err) {
+    const msg = String(err?.message || '').toLowerCase();
+    const causeCode = String(err?.cause?.code || '').toLowerCase();
+    return msg.includes('fetch failed')
+        || msg.includes('econnrefused')
+        || msg.includes('enotfound')
+        || msg.includes('etimedout')
+        || msg.includes('network')
+        || causeCode === 'econnrefused'
+        || causeCode === 'enotfound'
+        || causeCode === 'etimedout';
+}
+
 async function prepareOllamaEvidence(evidencePaths) {
     const imageBase64List = [];
     const imageFileNames = [];
@@ -323,9 +336,10 @@ async function analyzeWithOllama(reportId, reportData, evidencePaths) {
         let analysisData = parseAnalysisResponse(result.response);
         return analysisData;
     } catch (err) {
-        console.error(`[LLM] Ollama error:`, err.message);
-        if (err.message.includes('ECONNREFUSED') || err.message.includes('reachable')) {
-            throw new Error(`Ollama unreachable at ${OLLAMA_URL} - is your home PC on and running Ollama?`);
+        const causeCode = err?.cause?.code ? ` (${err.cause.code})` : '';
+        console.error(`[LLM] Ollama error:`, err.message, causeCode);
+        if (isLikelyNetworkFetchError(err) || String(err.message || '').includes('reachable')) {
+            throw new Error(`Ollama request failed at ${OLLAMA_URL}${causeCode}. Set LLM_PROVIDER=gemini on deployed backend or ensure Ollama is reachable.`);
         }
         throw err;
     }
@@ -384,7 +398,11 @@ async function analyzeWithGemini(reportId, reportData, evidencePaths) {
         let analysisData = parseAnalysisResponse(responseText);
         return analysisData;
     } catch (err) {
-        console.error(`[LLM] Gemini error:`, err.message);
+        const causeCode = err?.cause?.code ? ` (${err.cause.code})` : '';
+        console.error(`[LLM] Gemini error:`, err.message, causeCode);
+        if (isLikelyNetworkFetchError(err)) {
+            throw new Error(`Gemini request failed${causeCode}. Check outbound network access and GOOGLE_API_KEY.`);
+        }
         if (err.message?.includes('quota') || err.message?.includes('429')) {
             throw new Error(`Gemini quota exceeded`);
         }
@@ -425,7 +443,7 @@ function buildAnalysisPrompt(reportData, evidenceContext, options = {}) {
 **Report Type:** ${reportData.type || 'N/A'}
 **Description:** ${reportData.desc || 'N/A'}
 ${reportData.scammer_name ? `**Scammer Name:** ${reportData.scammer_name}` : ''}
-${reportData.phone ? `**Phone Number:** ${reportData.phone}` : ''}
+${reportData.website ? `**Scammer Website:** ${reportData.website}` : (reportData.phone ? `**Phone Number:** ${reportData.phone}` : '')}
 ${evidenceHeader}
 ${evidenceNames}
 ${imageEvidenceLine}
@@ -433,7 +451,7 @@ ${pdfEvidenceBlock}
 
 Scoring rubric (important):
 - Start from 40 as a neutral baseline.
-- Weak signals alone (weird username, odd phone formatting, short/vague text) should usually stay under 60.
+- Weak signals alone (weird username, suspicious website formatting, short/vague text) should usually stay under 60.
 - Use 60-79 only when there are multiple concrete scam indicators.
 - Use 80-100 only when evidence strongly supports fraud (clear impersonation, payment coercion, OTP theft, remote-access abuse, repeated strong red flags).
 - If evidence is missing/unclear, lower confidence and avoid extreme scores.

@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Report a Scam - Scamguard</title>
+    
+    <!-- Accessibility settings check -->
     <script>
         (function () {
             try {
@@ -63,8 +65,13 @@
         <form id="reportForm" class="report-form" novalidate>
             <!-- only necessary fields for new schema -->
             <div class="form-group">
-                <label for="phone">Phone Number</label>
-                <input type="tel" id="phone" name="phone" placeholder="+44 1234 567890">
+                <label for="scammerName">Company / Scammer Name <span class="required">*</span></label>
+                <input type="text" id="scammerName" name="scammerName" placeholder="e.g., ABC Corp or John Smith" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="website">Scammer Website</label>
+                <input type="url" id="website" name="website" placeholder="https://example.com">
             </div>
 
             <div class="form-group">
@@ -88,11 +95,6 @@
                     <option value="auction">Auction & Marketplace Fraud</option>
                     <option value="other">Other</option>
                 </select>
-            </div>
-
-            <div class="form-group">
-                <label for="scammerName">Company / Scammer Name <span class="required">*</span></label>
-                <input type="text" id="scammerName" name="scammerName" placeholder="e.g., ABC Corp or John Smith" required>
             </div>
 
             <div class="form-group">

@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Learn - Scamguard</title>
+    
+    <!-- Accessibility settings check -->
     <script>
         (function () {
             try {
@@ -243,11 +245,14 @@
         </div>
     </main>
 
+    <!-- Load bg, supabase & accessibility -->
     <script src="js/starfield.js"></script>
     <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="js/supabase.js?v=20260309"></script>
     <script type="module" src="js/nav.js?v=20260309"></script>
+    
+    <!-- Tree structure -->
     <script>
         function toggleTree(label) {
             const subtree = label.nextElementSibling;

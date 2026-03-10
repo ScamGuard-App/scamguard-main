@@ -304,7 +304,7 @@ async function loadUserReports(userId, sb) {
                 </div>
                 <div class="scam-details">
                     <div class="detail-row"><span class="label">Type:</span><span class="value">${escapeHtml(r.type || 'Unknown')}</span></div>
-                    <div class="detail-row"><span class="label">Contact:</span><span class="value">${escapeHtml(r.phone||r.email||r.contact_info||'N/A')}</span></div>
+                    <div class="detail-row"><span class="label">Website:</span><span class="value">${escapeHtml(r.website||r.contact_info||r.phone||r.email||'N/A')}</span></div>
                 </div>
             `;
             container.appendChild(card);

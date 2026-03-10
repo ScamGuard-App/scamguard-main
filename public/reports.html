@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Reports - Scamguard</title>
+    
+    <!-- Accessibility settings check -->
     <script>
         (function () {
             try {
@@ -62,8 +64,8 @@
                 </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-                <label for="searchInput">Search (fuzzy)</label>
-                <input type="text" id="searchInput" placeholder="Company, phone, title...">
+                <label for="searchInput">Search</label>
+                <input type="text" id="searchInput" placeholder="Company, website, title...">
             </div>
             <button id="searchBtn" class="btn btn-submit" style="align-self: flex-end; height: 44px;">
                 <i class="fas fa-search"></i> Search
@@ -110,6 +112,7 @@
             <div class="modal-field">
                 <label>Scammer Name / Company</label>
                 <div class="modal-field-value" id="modalScammerName"></div>
+                <div style="margin-top: 6px; font-size: 13px; color: #9ca3af;" id="modalWebsite"></div>
             </div>
 
             <div class="modal-field">
@@ -121,7 +124,6 @@
                 <label>Reporter Info</label>
                 <div class="modal-field-value">
                     <strong id="modalReporter"></strong> • <span id="modalDate"></span>
-                    <div style="margin-top: 6px; font-size: 13px; color: #9ca3af;" id="modalPhone"></div>
                 </div>
             </div>
 

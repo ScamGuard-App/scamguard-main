@@ -324,9 +324,9 @@ function performSearch() {
             const titleScore = fuzzyScore(searchTerm, report.title || '');
             const scammerScore = fuzzyScore(searchTerm, report.scammer_name || '');
             const descScore = fuzzyScore(searchTerm, report.desc || '');
-            const phoneScore = fuzzyScore(searchTerm, report.phone?.toString() || '');
+            const websiteScore = fuzzyScore(searchTerm, report.website || report.contact_info || report.phone?.toString() || '');
             
-            const maxScore = Math.max(titleScore, scammerScore, descScore, phoneScore);
+            const maxScore = Math.max(titleScore, scammerScore, descScore, websiteScore);
             return { report, score: maxScore };
         })
         .filter(item => item.score > 0)
@@ -338,6 +338,13 @@ function performSearch() {
     }
 
     renderResults(filtered);
+}
+
+function toWebsiteHref(value) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    if (/^https?:\/\//i.test(text)) return text;
+    return `https://${text}`;
 }
 
 function renderResults(results) {
@@ -424,11 +431,14 @@ window.openReportModal = function(reportId) {
     document.getElementById('modalReporter').textContent = username;
     document.getElementById('modalDate').textContent = date;
     
-    const phoneEl = document.getElementById('modalPhone');
-    if (report.phone) {
-        phoneEl.textContent = `Phone: ${escapeHtml(report.phone?.toString() || 'N/A')}`;
+    const websiteEl = document.getElementById('modalWebsite');
+    const websiteText = report.website || report.contact_info || report.phone?.toString() || '';
+    if (websiteText) {
+        const safeLabel = escapeHtml(websiteText);
+        const safeHref = escapeAttr(toWebsiteHref(websiteText));
+        websiteEl.innerHTML = `Website: <a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration-color: currentColor;">${safeLabel}</a>`;
     } else {
-        phoneEl.textContent = 'Phone: Not provided';
+        websiteEl.textContent = 'Website: Not provided';
     }
 
     // Handle AI Analysis

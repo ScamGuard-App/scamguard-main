@@ -5,6 +5,7 @@ import { buildApiUrl, getApiCandidates } from './api.js';
 const endpoints = {
     dashboard: getApiCandidates('/admin/dashboard-data'),
     rerun: [buildApiUrl('/admin/rerun-ai')],
+    diagnostics: getApiCandidates('/admin/ai-diagnostics'),
     users: getApiCandidates('/admin/users'),
     reports: getApiCandidates('/admin/reports'),
 };
@@ -66,10 +67,69 @@ function bindActions() {
         await loadDashboardStats();
     });
 
+    document.getElementById('runAiDiagnostics')?.addEventListener('click', async () => {
+        await runAiDiagnostics();
+    });
+
     document.getElementById('refreshUsersBtn')?.addEventListener('click', async () => {
         await loadUsersTable();
         await loadDashboardStats();
     });
+}
+
+function formatTimestamp(value) {
+    if (!value) return 'Unknown time';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString();
+}
+
+function renderDiagnosticsOutput(diagnostics) {
+    const output = document.getElementById('aiDiagnosticsOutput');
+    if (!output) return;
+
+    const lines = [];
+    lines.push(`Checked: ${formatTimestamp(diagnostics.checkedAt)}`);
+    lines.push(`Provider: ${diagnostics.provider}`);
+    lines.push(`Provider health: ${diagnostics.providerReachable ? 'OK' : 'Unreachable/Invalid config'}`);
+    lines.push(`Provider details: ${diagnostics.providerMessage || 'No details'}`);
+    lines.push(`Queue ready: ${diagnostics.queueReady ? 'Yes' : 'No'}`);
+    lines.push(`Inline fallback enabled: ${diagnostics.inlineFallbackEnabled ? 'Yes' : 'No'}`);
+
+    const failures = diagnostics.recentFailures || [];
+    lines.push('Recent AI failures:');
+    if (failures.length === 0) {
+        lines.push('- None found in recent records');
+    } else {
+        failures.forEach((row) => {
+            const title = row.title ? ` (${row.title})` : '';
+            lines.push(`- report ${row.report_id}${title} @ ${formatTimestamp(row.created_at)} -> ${row.error}`);
+        });
+    }
+
+    output.textContent = lines.join('\n');
+}
+
+async function runAiDiagnostics() {
+    const statusEl = document.getElementById('aiOpsStatus');
+    const output = document.getElementById('aiDiagnosticsOutput');
+    if (statusEl) statusEl.textContent = 'Running AI diagnostics...';
+    if (output) output.textContent = '';
+
+    try {
+        const { response, payload, endpoint } = await fetchWithFallback(endpoints.diagnostics);
+        if (!response.ok) throw new Error(payload.error || 'Failed to run diagnostics');
+        if (!payload || !payload.diagnostics) {
+            throw new Error(`Diagnostics endpoint returned unexpected payload from ${endpoint}`);
+        }
+
+        renderDiagnosticsOutput(payload.diagnostics);
+        if (statusEl) statusEl.textContent = 'AI diagnostics completed.';
+    } catch (err) {
+        console.error('ai diagnostics error', err);
+        if (statusEl) statusEl.textContent = `AI diagnostics failed: ${err.message}`;
+        if (output) output.textContent = `Diagnostics error: ${err.message}`;
+    }
 }
 
 async function fetchWithFallback(urls, options = {}) {
@@ -100,7 +160,7 @@ async function fetchWithFallback(urls, options = {}) {
             }
 
             const contentType = response.headers.get('content-type') || '';
-            if (endpoint.startsWith('/') && !contentType.includes('application/json')) {
+            if (!contentType.includes('application/json')) {
                 continue;
             }
 

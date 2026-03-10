@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>Admin Panel - Scamguard</title>
+    
+    <!-- Accessibility settings check -->
     <script>
         (function () {
             try {
@@ -65,9 +67,11 @@
             <div class="admin-ai-controls">
                 <button id="rerunMissingAI" type="button" class="btn btn-submit">Re-Run AI For Missing Reports</button>
                 <button id="rerunAllAI" type="button" class="btn btn-reset">Re-Run AI For All Reports</button>
+                <button id="runAiDiagnostics" type="button" class="btn btn-reset">Call AI Diagnostics</button>
                 <input id="rerunLimit" class="admin-limit-input" type="number" min="1" max="500" placeholder="Limit (optional)">
             </div>
             <p id="aiOpsStatus" class="admin-muted">No AI jobs queued in this session.</p>
+            <div id="aiDiagnosticsOutput" class="admin-muted" style="margin-top:0.8rem; white-space:pre-wrap;"></div>
         </section>
 
         <section class="admin-portal-grid">
@@ -118,6 +122,7 @@
         </section>
     </main>
 
+    <!-- Load bg, supabase & accessibility -->
     <script src="js/starfield.js"></script>
     <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
