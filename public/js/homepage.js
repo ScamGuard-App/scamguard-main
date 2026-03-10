@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadHomepageData() {
     try {
-        // Ensure supabase is initialized
         const sb = await ensureSupabase();
         
         if (!sb) {
@@ -23,6 +22,7 @@ async function loadHomepageData() {
             return;
         }
 
+        // Home view intentionally reads a broad slice; cards and chart derive from same dataset.
         const { data, error } = await sb
             .from('reports')
             .select('*')
@@ -36,16 +36,12 @@ async function loadHomepageData() {
 
         const reports = data || [];
 
-        // Update statistics
         updateStatistics(reports);
 
-        // Display recent reports (up to 4)
         displayRecentReports(reports.slice(0, 4));
 
-        // draw the type distribution chart
         renderTypeChart(reports);
 
-        // hook search redirect button
         const searchBtn = document.getElementById('searchRedirect');
         if (searchBtn) {
             searchBtn.addEventListener('click', () => {
@@ -59,13 +55,11 @@ async function loadHomepageData() {
 }
 
 function updateStatistics(reports) {
-    // Update total reports count
     const totalReportsElement = document.querySelector('.card:nth-child(1) .stat');
     if (totalReportsElement) {
         totalReportsElement.textContent = reports.length.toLocaleString();
     }
 
-    // Calculate top scam type
     const topScamType = calculateTopScamType(reports);
     const topScamTypeElement = document.querySelector('.card:nth-child(2) .stat');
     if (topScamTypeElement) {
@@ -73,7 +67,7 @@ function updateStatistics(reports) {
     }
 }
 
-// render a Chart.js pie/bar of scam type distribution
+// Render a Chart.js pie/bar of scam type distribution
 let typeChartInstance = null;
 
 function getBlueGreenGradient(steps) {
@@ -109,6 +103,7 @@ function renderTypeChart(reports) {
     const chartBorderColor = '#0b1220';
     const chartBorderWidth = 3;
 
+    // Reuse the existing Chart instance to avoid canvas leaks on refreshes.
     if (typeChartInstance) {
         typeChartInstance.data.labels = labels;
         typeChartInstance.data.datasets[0].data = data;
@@ -152,7 +147,7 @@ function calculateTopScamType(reports) {
     let maxCount = 0;
     let topType = 'Unknown';
 
-    // We need to maintain order, so we'll iterate through reports to get the first occurrence of each type
+    // User first-in-list as a tie-breaker for equal counts
     const typeOrder = [];
     reports.forEach(report => {
         const type = report.type || 'Unknown';
@@ -161,7 +156,6 @@ function calculateTopScamType(reports) {
         }
     });
 
-    // Find the top type, with first-in-list as tie-breaker
     for (const type of typeOrder) {
         if (typeCounts[type] > maxCount) {
             maxCount = typeCounts[type];
@@ -198,7 +192,6 @@ function createScamCard(report) {
     const createdDate = new Date(report.created_at);
     const timeAgo = getTimeAgo(createdDate);
 
-    // Get display name (try username from metadata, fallback to email or user_id)
     const displayName = report.scammer_name || 'Anonymous Reporter';
 
     card.innerHTML = `
@@ -218,6 +211,7 @@ function createScamCard(report) {
         </div>
     `;
 
+    // Redirect to the report details on search page when clicking card
     if (report.report_id) {
         const targetUrl = `reports.html?reportId=${encodeURIComponent(String(report.report_id))}`;
         card.classList.add('recent-report-link');
@@ -237,7 +231,7 @@ function createScamCard(report) {
     return card;
 }
 
-
+// Fallback error display if broken
 function displayLoadError() {
     const totalReportsElement = document.querySelector('.card:nth-child(1) .stat');
     const topScamTypeElement = document.querySelector('.card:nth-child(2) .stat');

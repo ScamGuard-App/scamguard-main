@@ -7,11 +7,11 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 let supabaseClient = null;
 
-// Create the client if window.supabase is available, otherwise set up listeners
+// In some page loads the CDN script arrives after this module; handle both timings.
 if (window.supabase) {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } else {
-  // Wait for supabase to be available
+  // Poll briefly, then fire a custom event once the client is finally ready.
   (async () => {
     let attempts = 0;
     while (!window.supabase && attempts < 100) {
@@ -26,7 +26,7 @@ if (window.supabase) {
   })();
 }
 
-// Helper to ensure supabase is ready
+// Shared awaitable helper so call sites don't race the CDN load order.
 async function ensureSupabase() {
   if (supabaseClient) return supabaseClient;
   
@@ -40,7 +40,7 @@ async function ensureSupabase() {
       resolve(supabaseClient);
     }, { once: true });
     
-    // Timeout fallback
+    // Fail soft after a short wait; caller can decide how to handle null.
     setTimeout(() => resolve(supabaseClient), 5000);
   });
 }

@@ -1,4 +1,5 @@
 (function () {
+  // Persistent settings.
   const STORAGE_KEY = 'scamguardAccessibilitySettings';
   const LEGACY_STORAGE_KEY = 'accountAccessibilitySettings';
 
@@ -21,6 +22,7 @@
       }
 
       const parsed = JSON.parse(raw || legacyRaw);
+      // Coerce everything to booleans in case localStorage contains weird legacy values.
       return {
         monospace: Boolean(parsed.monospace),
         disableBackground: Boolean(parsed.disableBackground),
@@ -40,11 +42,12 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(settings));
     } catch (error) {
-      // Non-fatal: UI still works for the current page load.
+      // If storage is blocked (private mode, quota), keep working for this session.
     }
   }
 
   function applySettings(settings) {
+    // HTML attributes are consumed by shared CSS and page bootstraps.
     document.documentElement.toggleAttribute('data-a11y-font', settings.monospace);
     document.documentElement.toggleAttribute(
       'data-a11y-starfield-disabled',
@@ -52,6 +55,7 @@
     );
     document.documentElement.toggleAttribute('data-a11y-reduce-motion', settings.reduceMotion);
 
+  // Accessibility toggles.
     document.body.classList.toggle('a11y-monospace', settings.monospace);
     document.body.classList.toggle('a11y-no-background', settings.disableBackground);
     document.body.classList.toggle('a11y-reduce-motion', settings.reduceMotion);
@@ -80,6 +84,7 @@
   }
 
   const savedSettings = readSavedSettings();
+  // Apply before syncing controls so the UI always reflects the current state.
   applySettings(savedSettings);
   syncControlState(savedSettings);
 

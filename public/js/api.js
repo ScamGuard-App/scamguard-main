@@ -14,6 +14,7 @@ function isLocalHost() {
 }
 
 function resolveApiBaseUrl() {
+    // Runtime global wins so deployments can override without rebuilding frontend files.
     const runtimeBase = normalizeBaseUrl(window.SCAMGUARD_API_BASE_URL || '');
     if (runtimeBase) return runtimeBase;
 
@@ -26,6 +27,7 @@ function resolveApiBaseUrl() {
 const RESOLVED_API_BASE_URL = resolveApiBaseUrl();
 
 function buildApiUrl(path) {
+    // Accept both "foo" and "/foo" from call sites.
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return RESOLVED_API_BASE_URL
         ? `${RESOLVED_API_BASE_URL}${normalizedPath}`
@@ -33,6 +35,7 @@ function buildApiUrl(path) {
 }
 
 function getApiCandidates(path) {
+    // Try backend first, then local relative fallback for Live Server/dev setups (for testing).
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     const candidates = [];
 
@@ -44,6 +47,7 @@ function getApiCandidates(path) {
     } else {
         candidates.push(normalizedPath);
         if (isLocalHost()) {
+            // Using live server for testing
             candidates.push(`http://localhost:3000${normalizedPath}`);
         }
     }

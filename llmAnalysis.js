@@ -15,9 +15,7 @@ const RISK_SCORE_BIAS = Number(process.env.RISK_SCORE_BIAS ?? -10);
 const RISK_SOFT_CAP_NO_EVIDENCE = Number(process.env.RISK_SOFT_CAP_NO_EVIDENCE ?? 78);
 const RISK_SOFT_CAP_WEAK_SIGNALS = Number(process.env.RISK_SOFT_CAP_WEAK_SIGNALS ?? 65);
 
-/**
- * Determine media type based on file extension
- */
+// MIME verification
 function getMediaType(filePath) {
     const ext = filePath.toLowerCase().split('.').pop();
     const mimeTypes = {
@@ -31,6 +29,54 @@ function getMediaType(filePath) {
     return mimeTypes[ext] || 'application/octet-stream';
 }
 
+function bufferStartsWith(buffer, signature) {
+    if (!buffer || buffer.length < signature.length) return false;
+    for (let i = 0; i < signature.length; i += 1) {
+        if (buffer[i] !== signature[i]) return false;
+    }
+    return true;
+}
+
+// Server-side magic number verification just incase something bypasses client-side verification
+function hasAllowedMagicNumber(mediaType, buffer) {
+    if (!buffer || buffer.length === 0) return false;
+
+    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+    if (mediaType === 'image/png') {
+        return bufferStartsWith(buffer, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    }
+
+    // JPEG signature: FF D8 FF
+    if (mediaType === 'image/jpeg') {
+        return bufferStartsWith(buffer, [0xFF, 0xD8, 0xFF]);
+    }
+
+    // GIF signatures: GIF87a / GIF89a
+    if (mediaType === 'image/gif') {
+        return bufferStartsWith(buffer, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61])
+            || bufferStartsWith(buffer, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+    }
+
+    // PDF signature: %PDF
+    if (mediaType === 'application/pdf') {
+        return bufferStartsWith(buffer, [0x25, 0x50, 0x44, 0x46]);
+    }
+
+    return false;
+}
+
+function assertSafeEvidenceFile(filePath, buffer) {
+    const mediaType = getMediaType(filePath);
+    const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'application/pdf']);
+    if (!allowedTypes.has(mediaType)) {
+        throw new Error(`Unsupported evidence type for ${filePath}: ${mediaType}`);
+    }
+
+    if (!hasAllowedMagicNumber(mediaType, buffer)) {
+        throw new Error(`Evidence signature mismatch for ${filePath} (${mediaType})`);
+    }
+}
+
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -40,6 +86,8 @@ function toFiniteNumber(value, fallback = 0) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// Current list of strong scam signals to look for in text; used for risk score calibration.
+// Ensure this is kept up to date
 function countStrongSignals(text) {
     const normalized = String(text || '').toLowerCase();
     const patterns = [
@@ -104,6 +152,7 @@ function calibrateRiskScore(analysisData, reportData, evidenceContext) {
     const hasEvidence = evidenceContext.total > 0;
     const confidence = toFiniteNumber(analysisData?.confidence, 50);
 
+    // Cap score if no evidence is provided
     if (!hasEvidence) {
         score = Math.min(score, RISK_SOFT_CAP_NO_EVIDENCE);
     }
@@ -112,6 +161,7 @@ function calibrateRiskScore(analysisData, reportData, evidenceContext) {
         score = Math.min(score, RISK_SOFT_CAP_WEAK_SIGNALS);
     }
 
+    // Weight score based on a combination of confidence and score - high score w/ low confidence isn't good
     if (confidence < 45 && score > 75) {
         score = 75;
     }
@@ -137,9 +187,7 @@ function calibrateRiskScore(analysisData, reportData, evidenceContext) {
     return calibrated;
 }
 
-/**
- * Download file from Supabase storage
- */
+// Download file from Supabase storage
 async function downloadEvidenceFile(bucketName, filePath) {
     try {
         const { data, error } = await supabase.storage
@@ -154,6 +202,7 @@ async function downloadEvidenceFile(bucketName, filePath) {
     }
 }
 
+// Convert Blob or ArrayBuffer to Buffer
 async function blobToBuffer(fileData) {
     if (!fileData) return null;
     if (Buffer.isBuffer(fileData)) return fileData;
@@ -171,6 +220,7 @@ function normalizeWhitespace(text) {
         .trim();
 }
 
+// Catch common network issues if LLM isnt running
 function isLikelyNetworkFetchError(err) {
     const msg = String(err?.message || '').toLowerCase();
     const causeCode = String(err?.cause?.code || '').toLowerCase();
@@ -209,6 +259,9 @@ async function prepareOllamaEvidence(evidencePaths) {
                 continue;
             }
 
+            // Server-side signature check to catch spoofed extensions/MIME.
+            assertSafeEvidenceFile(filePath, buffer);
+
             imageBase64List.push(buffer.toString('base64'));
             imageFileNames.push(fileName);
             imageCount += 1;
@@ -223,6 +276,9 @@ async function prepareOllamaEvidence(evidencePaths) {
                 console.warn(`[LLM] Could not read PDF evidence ${filePath}`);
                 continue;
             }
+
+            // Server-side signature check to catch spoofed extensions/MIME.
+            assertSafeEvidenceFile(filePath, buffer);
 
             try {
                 const parsed = await pdfParse(buffer);
@@ -244,9 +300,7 @@ async function prepareOllamaEvidence(evidencePaths) {
 }
 
 
-/**
- * Analyze a report using local Ollama or cloud Gemini (with fallback)
- */
+// Analyze a report using local Ollama
 async function analyzeReport(reportId, reportData, evidencePaths) {
     try {
         console.log(`[LLM] Starting analysis for report ${reportId} using ${LLM_PROVIDER}`);
@@ -254,33 +308,14 @@ async function analyzeReport(reportId, reportData, evidencePaths) {
         let analysisData;
         const evidenceContext = buildEvidenceContext(evidencePaths);
 
-        // Try primary provider
+        // Try Ollama
         try {
-            if (LLM_PROVIDER === 'ollama') {
-                analysisData = await analyzeWithOllama(reportId, reportData, evidencePaths);
-            } else {
-                analysisData = await analyzeWithGemini(reportId, reportData, evidencePaths);
-            }
+            analysisData = await analyzeWithOllama(reportId, reportData, evidencePaths);
             analysisData = calibrateRiskScore(analysisData, reportData, evidenceContext);
             console.log(`[LLM] Analysis complete for report ${reportId}, risk_score: ${analysisData.risk_score}`);
             return analysisData;
         } catch (primaryErr) {
             console.error(`[LLM] Primary provider (${LLM_PROVIDER}) failed:`, primaryErr.message);
-
-            // If primary fails and it's Ollama, try Gemini as fallback
-            if (LLM_PROVIDER === 'ollama' && GEMINI_API_KEY) {
-                console.log(`[LLM] Attempting fallback to Gemini API...`);
-                try {
-                    analysisData = await analyzeWithGemini(reportId, reportData, evidencePaths);
-                    analysisData = calibrateRiskScore(analysisData, reportData, evidenceContext);
-                    console.log(`[LLM] Fallback to Gemini succeeded`);
-                    return analysisData;
-                } catch (fallbackErr) {
-                    console.error(`[LLM] Fallback to Gemini also failed:`, fallbackErr.message);
-                    throw new Error(`Both ${LLM_PROVIDER} and Gemini failed: ${primaryErr.message}`);
-                }
-            }
-
             throw primaryErr;
         }
     } catch (err) {
@@ -289,9 +324,7 @@ async function analyzeReport(reportId, reportData, evidencePaths) {
     }
 }
 
-/**
- * Analyze using local Ollama
- */
+// Analyze using local Ollama
 async function analyzeWithOllama(reportId, reportData, evidencePaths) {
     console.log(`[LLM] Querying Ollama at ${OLLAMA_URL}`);
 
@@ -345,74 +378,7 @@ async function analyzeWithOllama(reportId, reportData, evidencePaths) {
     }
 }
 
-/**
- * Analyze using cloud Gemini API (requires @google/generative-ai)
- */
-async function analyzeWithGemini(reportId, reportData, evidencePaths) {
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-    try {
-        console.log(`[LLM] Querying Gemini API...`);
-
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const evidenceContext = buildEvidenceContext(evidencePaths);
-        const prompt = buildAnalysisPrompt(reportData, evidenceContext, {
-            evidenceInspectionMode: 'full',
-        });
-
-        // Build content array with text first
-        const content = [{ text: prompt }];
-
-        // Add evidence files (images only)
-        if (evidencePaths && evidencePaths.length > 0) {
-            console.log(`[LLM] Processing ${evidencePaths.length} evidence files`);
-            
-            for (const filePath of evidencePaths) {
-                const fileBuffer = await downloadEvidenceFile('evidence', filePath);
-                if (!fileBuffer) {
-                    console.warn(`[LLM] Could not download ${filePath}, skipping`);
-                    continue;
-                }
-
-                const mediaType = getMediaType(filePath);
-                
-                if (mediaType.startsWith('image/') || mediaType === 'application/pdf') {
-                    console.log(`[LLM] Adding evidence file ${filePath} (${mediaType})`);
-                    content.push({
-                        inlineData: {
-                            mimeType: mediaType,
-                            data: Buffer.from(fileBuffer).toString('base64'),
-                        },
-                    });
-                } else {
-                    console.log(`[LLM] Skipping ${filePath} (unsupported media type: ${mediaType})`);
-                }
-            }
-        }
-
-        const response = await model.generateContent(content);
-        const responseText = response.response.text();
-        console.log(`[LLM] Gemini response received`);
-
-        let analysisData = parseAnalysisResponse(responseText);
-        return analysisData;
-    } catch (err) {
-        const causeCode = err?.cause?.code ? ` (${err.cause.code})` : '';
-        console.error(`[LLM] Gemini error:`, err.message, causeCode);
-        if (isLikelyNetworkFetchError(err)) {
-            throw new Error(`Gemini request failed${causeCode}. Check outbound network access and GOOGLE_API_KEY.`);
-        }
-        if (err.message?.includes('quota') || err.message?.includes('429')) {
-            throw new Error(`Gemini quota exceeded`);
-        }
-        throw err;
-    }
-}
-
-/**
- * Build analysis prompt (shared between providers)
- */
+// Build analysis prompt 
 function buildAnalysisPrompt(reportData, evidenceContext, options = {}) {
     const mode = options.evidenceInspectionMode || 'full';
     const imageFileNames = Array.isArray(options.imageFileNames) ? options.imageFileNames : [];
@@ -472,9 +438,7 @@ Please provide a response in JSON format with the following structure:
 Analyze the report and any evidence carefully.`;
 }
 
-/**
- * Parse analysis response (works for both Ollama and Gemini)
- */
+// Parse analysis response (works for both Ollama and Gemini)
 function parseAnalysisResponse(responseText) {
     let analysisData = {
         risk_score: 50,

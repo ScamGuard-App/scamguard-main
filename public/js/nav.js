@@ -20,7 +20,8 @@ export async function updateNav() {
         const navEl = document.querySelector('nav');
         if (!linksDiv || !navEl) return;
 
-        // ensure nav layout has a single user area on the right
+        // Ensure we keep exactly one managed user area across repeated auth/nav updates.
+        // Was having some weird bugs with duplicated displays
         let userArea = document.getElementById('nav-user-area');
         Array.from(navEl.querySelectorAll('.nav-user')).forEach(el => {
             if (el.id !== 'nav-user-area') el.remove();
@@ -47,13 +48,14 @@ export async function updateNav() {
             });
         }
 
+        // Clear previously generated links to avoid duplicates when auth state changes.
         linksDiv.querySelectorAll('[data-generated="true"]').forEach(n => n.remove());
         userArea.innerHTML = '';
 
         let accountLink = linksDiv.querySelector('a[href="account.html"]');
         markActive();
 
-        // fetch profile early so we can use it when building links/user area
+        // Fetch once, then reuse for both role links and avatar/name rendering.
         let profile = null;
         if (session) {
             try {
@@ -82,7 +84,7 @@ export async function updateNav() {
                 }
             }
 
-            // populate user area using already-fetched profile
+            // Populate user area profile.
             const displayName = profile?.username || session.user.user_metadata?.username ||
                 (session.user.email ? session.user.email.split('@')[0] : 'Account');
             const avatarPath = profile?.avatar_url;
@@ -108,6 +110,7 @@ export async function updateNav() {
                 }
             }
 
+            // Username is a link to the account management page
             const nameLink = document.createElement('a');
             nameLink.href = 'account.html';
             nameLink.className = 'nav-link nav-user-name';
@@ -116,6 +119,7 @@ export async function updateNav() {
             nameLink.style.fontSize = '14px';
             nameLink.style.marginLeft = '8px';
 
+            // Easier sign-out method
             const signOutLink = document.createElement('a');
             signOutLink.href = '#';
             signOutLink.id = 'signOutLink';
@@ -148,7 +152,7 @@ export async function updateNav() {
     }
 }
 
-// keep nav reactive when auth state changes
+// Keep nav reactive when auth state changes
 (async () => {
     const sb = await ensureSupabase();
     if (sb) {
@@ -158,5 +162,5 @@ export async function updateNav() {
     }
 })();
 
-// run on page load
+// Run on page load
 document.addEventListener('DOMContentLoaded', updateNav);

@@ -42,6 +42,7 @@ function analysisPriority(record) {
     const summaryText = `${record.summary || ''}${analysisJson.incident_summary || ''}`.trim();
     const hasError = Boolean(analysisJson.error);
 
+    // Rank the analysis from 0-100, show pending if no result yet
     let rank = 0;
     if (score !== null) rank += 100;
     if (summaryText) rank += 10;
@@ -71,6 +72,7 @@ function normalizeReportAnalysis(report) {
     if (!report) return report;
 
     let selected = null;
+    // Support both backend-shaped field names and direct-table field names.
     const raw = report.aiAnalysis ?? report.ai_analysis ?? null;
     if (Array.isArray(raw)) {
         raw.forEach(item => {
@@ -123,6 +125,7 @@ function handleDeepLinkedReport() {
 
     window.openReportModal(report.report_id);
 
+    // Defer until table render is in DOM, then scroll/highlight for user context.
     requestAnimationFrame(() => {
         const selectorValue = escapeSelectorValue(String(report.report_id));
         const row = document.querySelector(`tr[data-report-id="${selectorValue}"]`);
@@ -145,13 +148,13 @@ function setupEventListeners() {
 
 async function loadReports() {
     try {
-        // Prefer backend endpoint so AI analysis is visible even when frontend RLS is restrictive.
+        // Prefer backend endpoint so AI analysis remains visible even if frontend RLS blocks joins.
         const endpointCandidates = getApiCandidates('/reports-with-analysis');
         for (const endpoint of endpointCandidates) {
             try {
                 const response = await fetch(endpoint);
 
-                // When hosted on a static server, relative endpoint may be unsupported.
+                // Relative endpoint can be wrong host under Live Server/GitHub Pages.
                 if ((response.status === 404 || response.status === 405) && endpoint.startsWith('/')) {
                     continue;
                 }
@@ -198,7 +201,7 @@ async function loadReports() {
         const userIds = [...new Set(allReports.map(r => r.user_id))];
         await fetchUsernames(userIds, sb);
         
-        // Fetch AI analysis for all reports
+        // Fallback path: fetch analysis separately when backend helper endpoint is unavailable.
         await fetchAIAnalysis(allReports, sb);
         
         performSearch();

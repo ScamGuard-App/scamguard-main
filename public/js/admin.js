@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .maybeSingle();
 
     if (!profile || !profile.is_admin) {
+        // Catch non-admin users
         showAlert('Access denied: you are not an administrator.');
         const main = document.querySelector('main');
         if (main) main.style.display = 'none';
@@ -57,6 +58,7 @@ function bindActions() {
     document.getElementById('rerunAllAI')?.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
+        // Not a worry while locally running but it's fine
         const yes = window.confirm('Re-run AI for ALL reports? This may take a while and consume API quota.');
         if (!yes) return;
         await triggerAiRerun('all');
@@ -88,6 +90,7 @@ function renderDiagnosticsOutput(diagnostics) {
     const output = document.getElementById('aiDiagnosticsOutput');
     if (!output) return;
 
+    // Debugging purposes; easier than submitting a new report each time
     const lines = [];
     lines.push(`Checked: ${formatTimestamp(diagnostics.checkedAt)}`);
     lines.push(`Provider: ${diagnostics.provider}`);
@@ -96,6 +99,7 @@ function renderDiagnosticsOutput(diagnostics) {
     lines.push(`Queue ready: ${diagnostics.queueReady ? 'Yes' : 'No'}`);
     lines.push(`Inline fallback enabled: ${diagnostics.inlineFallbackEnabled ? 'Yes' : 'No'}`);
 
+    // Debugging purposes, tho should make it more verbose later
     const failures = diagnostics.recentFailures || [];
     lines.push('Recent AI failures:');
     if (failures.length === 0) {
@@ -145,7 +149,7 @@ async function fetchWithFallback(urls, options = {}) {
     }
 
     for (const endpoint of urls) {
-        // For mutating requests, never hit relative fallback URLs on the static host.
+        // Mutating calls should never target static-host relative routes.
         if (isMutatingRequest && endpoint.startsWith('/')) {
             continue;
         }
@@ -159,6 +163,7 @@ async function fetchWithFallback(urls, options = {}) {
                 continue;
             }
 
+            // Ignore HTML fallback responses; admin endpoints are JSON-only.
             const contentType = response.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
                 continue;
@@ -192,6 +197,7 @@ async function loadDashboardStats() {
 async function triggerAiRerun(mode) {
     const statusEl = document.getElementById('aiOpsStatus');
     const limitValue = Number(document.getElementById('rerunLimit')?.value || 0);
+    // Keep body shape minimal so backend defaults still apply cleanly.
     const body = { mode };
     if (Number.isFinite(limitValue) && limitValue > 0) {
         body.limit = Math.floor(limitValue);
@@ -216,6 +222,7 @@ async function triggerAiRerun(mode) {
             statusEl.textContent = `Queued ${payload.queued}/${payload.totalCandidates} reports for AI re-run (${mode}). Mode: ${executionMode}. Failed: ${payload.failed}.`;
         }
 
+        // Would love to make a better method eventually but this is fine for now.
         await loadDashboardStats();
     } catch (err) {
         console.error('rerun ai error', err);

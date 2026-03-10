@@ -35,6 +35,7 @@ function clearAnalysisPolling() {
     analysisPollAttempts = 0;
 }
 
+// Cool status messages for users to track the AI analysis progress after submitting a report.
 function updateAnalysisStatus(state, message) {
     if (!analysisStatusMessage || !analysisStatusText || !analysisStatusIcon) return;
 
@@ -60,7 +61,6 @@ function resetAnalysisStatusUI() {
     analysisStatusMessage.classList.remove('pending', 'completed', 'failed');
 }
 
-// evidence file handling
 if (evidenceInput) {
     evidenceInput.addEventListener('change', (e) => handleEvidenceFiles(e.target.files));
 }
@@ -72,6 +72,7 @@ if (evidenceArea) {
 }
 
 // restrict file size & types
+// Current limit 10mb and all img + pdf, maybe allow docx in future
 function handleEvidenceFiles(files) {
     const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'application/pdf'];
     for (let file of files) {
@@ -90,6 +91,7 @@ function handleEvidenceFiles(files) {
     updateEvidenceList();
 }
 
+// Show evidence & allow user to remove if necessary
 function updateEvidenceList() {
     if (!evidenceList) return;
     evidenceList.innerHTML = '';
@@ -118,6 +120,7 @@ document.addEventListener('click', (e) => {
 function makeId() { return Math.random().toString(36).substr(2,9); }
 
 async function postQueueAnalysis(reportId) {
+    // Try a small list of possible API hosts so Live Server + deployed backend both work.
     const endpoints = getApiCandidates('/queue-analysis');
     let lastError = null;
 
@@ -145,6 +148,7 @@ async function postQueueAnalysis(reportId) {
 }
 
 async function getAnalysisStatus(reportId) {
+    // Mirrors postQueueAnalysis fallback logic for status polling.
     const endpoints = getApiCandidates(`/analysis-status/${reportId}`);
     let lastError = null;
 
@@ -172,6 +176,7 @@ async function pollAnalysisStatus(reportId) {
             throw new Error(data?.error || 'Status request failed');
         }
 
+        // Successful response
         const status = data?.status || 'pending';
         if (status === 'completed') {
             clearAnalysisPolling();
@@ -190,6 +195,7 @@ async function pollAnalysisStatus(reportId) {
 
         updateAnalysisStatus('pending', 'AI analysis in progress. This may take up to a minute...');
 
+        // Hard-stop long polls so we do not keep spinning forever on broken environments.
         analysisPollAttempts += 1;
         if (analysisPollAttempts >= 30) {
             clearAnalysisPolling();
@@ -209,6 +215,7 @@ function startAnalysisStatusPolling(reportId) {
     clearAnalysisPolling();
     updateAnalysisStatus('pending', 'AI analysis queued. Waiting for processing...');
 
+    // Kick one immediate poll, then interval polls for updates.
     pollAnalysisStatus(reportId);
     analysisPollTimer = setInterval(() => {
         pollAnalysisStatus(reportId);
@@ -216,6 +223,7 @@ function startAnalysisStatusPolling(reportId) {
 }
 
 function normalizeWebsiteInput(rawValue) {
+    // Friendly normalization so users can paste "www..." without protocol.
     const trimmed = String(rawValue || '').trim();
     if (!trimmed) return '';
     return trimmed.replace(/^www\./i, 'https://www.');
@@ -241,9 +249,10 @@ reportForm.addEventListener('submit', async e => {
 
     const websiteInput = document.getElementById('website') || document.getElementById('phone');
     const websiteVal = normalizeWebsiteInput(websiteInput?.value || '');
+    // Keep payload assembly in one place to make schema migrations easier to reason about.
     const payload = {
         user_id: session.user.id,
-        phone: null,
+        phone: null, // phase this out soon
         website: websiteVal || null,
         title: document.getElementById('title').value,
         scammer_name: document.getElementById('scammerName')?.value || null,
@@ -253,7 +262,7 @@ reportForm.addEventListener('submit', async e => {
     };
 
     try {
-        // upload evidence files to the 'evidence' bucket but first verify magic numbers for polyglot attacks
+        // Call magic number verification before uploading as a preliminary client-side verification
         const evidencePaths = [];
         if (uploadedFiles.length > 0) {
             for (let file of uploadedFiles) {
@@ -270,7 +279,7 @@ reportForm.addEventListener('submit', async e => {
                     .from('evidence')
                     .upload(filePath, file);
                 if (uploadError) throw uploadError;
-                // store path (not public URL) and generate signed URLs when viewing
+                // Store path (not public URL) for safer backend retrieval
                 if (uploadData && uploadData.path) evidencePaths.push(uploadData.path);
             }
             payload.evidence_url = JSON.stringify(evidencePaths);
@@ -290,6 +299,7 @@ reportForm.addEventListener('submit', async e => {
         const reportId = data[0].report_id;
         console.log('[ReportSubmit] Report created with ID:', reportId);
         
+        // Debugging purposes
         if (reportId) {
             try {
                 console.log('[ReportSubmit] Queuing analysis for report:', reportId);
@@ -334,7 +344,8 @@ if (reportForm) {
     });
 }
 
-// client-side magic number verifier for PNG, JPG, GIF, PDF
+// Client-side magic number verifier for PNG, JPG, GIF, PDF
+// Submission sanitisation against polyglot attacks, rare but possible
 async function verifyMagicNumber(file) {
     try {
         const buf = await file.slice(0, 8).arrayBuffer();

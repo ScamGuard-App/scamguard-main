@@ -22,6 +22,7 @@ function clearAuthMessages() {
 }
 
 function switchTo(signup) {
+    // Keep tab state and form visibility in sync from one place.
     clearAuthMessages();
     if (signup) {
         signUpForm.classList.remove('hidden');
@@ -62,12 +63,12 @@ signUpForm.addEventListener('submit', async e => {
         });
         if (error) throw error;
 
-        // the new user is created but may be unconfirmed
+        // Remind them to confirm w/ email
         signUpMsg.textContent =
             'Registration successful! Check your inbox to confirm before logging in.';
-        // optionally: await sb.auth.updateUser({ data:{ username } });
         
         // Create a profile row in `profiles` table if the user object is available
+        // This is for things like username // avatar since supabase auth doesn't handle that
         try {
             const newUser = data?.user;
             if (newUser && newUser.id) {
@@ -88,7 +89,6 @@ signUpForm.addEventListener('submit', async e => {
     }
 });
 
-// login handler – give a more helpful message for un‑confirmed accounts
 loginForm.addEventListener('submit', async e => {
     e.preventDefault();
     clearAuthMessages();
@@ -127,7 +127,7 @@ loginForm.addEventListener('submit', async e => {
     }
 });
 
-// profile management elements
+// -- profile management elements --
 const profileSection = document.getElementById('profileSection');
 const profileUsername = document.getElementById('profileUsername');
 const profileEmail = document.getElementById('profileEmail');
@@ -152,18 +152,19 @@ async function loadProfile() {
 
     const { data: { session } } = await sb.auth.getSession();
     if (session && session.user) {
+        // Show account management UI when logged in
         document.querySelector('.auth-toggle')?.classList.add('hidden');
         showSignUp.classList.add('hidden');
         showLogin.classList.add('hidden');
         signUpForm.classList.add('hidden');
         loginForm.classList.add('hidden');
 
-        // show profile section and potentially admin portal button
+        // Hide admin by default
         profileSection.classList.remove('hidden');
         profileEmail.value = session.user.email || '';
         profileUsername.value = session.user.user_metadata?.username || '';
 
-        // load profile row from `profiles` table (if exists) to get avatar_url and canonical username/email
+        // Check user info from profiles table
         try {
             const { data: profile, error } = await sb
                 .from('profiles')
@@ -233,7 +234,7 @@ updateProfileBtn.addEventListener('click', async e => {
         const { data, error } = await sb.auth.updateUser(opts);
         if (error) throw error;
 
-        // Update profile row and upload avatar if present
+        // Auth update and profile table update are intentionally split; profile failure is non-fatal.
         try {
             const user = (await sb.auth.getUser()).data.user;
             let avatarPath = null;
@@ -253,7 +254,7 @@ updateProfileBtn.addEventListener('click', async e => {
             if (pErr) throw pErr;
         } catch (profErr) {
             console.warn('Profile update/upload error', profErr);
-            // non-fatal: continue
+            // Non-fatal: continue
         }
         
         profileMsg.textContent = 'Account updated successfully.';
@@ -264,7 +265,7 @@ updateProfileBtn.addEventListener('click', async e => {
     }
 });
 
-// avatar preview handler
+// Avatar preview handler
 if (profileAvatarInput) {
     profileAvatarInput.addEventListener('change', () => {
         const file = profileAvatarInput.files && profileAvatarInput.files[0];
@@ -279,12 +280,14 @@ if (profileAvatarInput) {
     });
 }
 
-// --- user reports ---
+// --- User reports ---
+// Not actually implemented yet
 async function loadUserReports(userId, sb) {
     const container = document.getElementById('userReportsContainer');
     if (!container) return;
     container.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#9ca3af;">Loading your reports...</p>';
     try {
+        // This is account-local history only (filtered by current user's id).
         const { data, error } = await sb.from('reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
         if (error) throw error;
         const reports = data || [];
@@ -345,6 +348,7 @@ if (removeAvatarBtn) {
     });
 }
 
+// Delete account handler
 deleteAccountBtn.addEventListener('click', async e => {
     e.preventDefault();
     if (!confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) {

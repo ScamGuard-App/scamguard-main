@@ -1,14 +1,16 @@
 // Adjustable parallax starfield generator.
-// Tweak STAR_COUNTS to control density globally.
 (function () {
   const STAR_COUNTS = {
+    // Seems like a good amount for now
     small: 220,
     medium: 90,
     large: 40,
   };
 
+  // Maximum field size
   const FIELD_SIZE = 2000;
 
+  // Generate the star field at a size between 0 and field_size
   function buildShadows(count) {
     const points = [];
     for (let i = 0; i < count; i += 1) {
@@ -20,10 +22,12 @@
   }
 
   function applyStarfield() {
+    // Check accessibility settings
     if (document.documentElement.hasAttribute('data-a11y-starfield-disabled')) {
       return;
     }
 
+    // CSS animation uses these custom properties as box-shadow lists.
     const root = document.documentElement;
     root.style.setProperty('--stars-small', buildShadows(STAR_COUNTS.small));
     root.style.setProperty('--stars-medium', buildShadows(STAR_COUNTS.medium));

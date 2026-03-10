@@ -56,7 +56,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize Redis queue for report analysis (optional).
+// Initialize Redis queue for report analysis (now handled by render)
 const reportAnalysisQueue = USE_REDIS_QUEUE
     ? new Queue('report-analysis', {
         redis: {
