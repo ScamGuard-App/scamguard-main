@@ -50,8 +50,48 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(express.json());
-app.use(helmet({ contentSecurityPolicy: false }));
+
+const isProd = process.env.NODE_ENV === 'production';
+
+// use helmet for security headers, with a strict content security policy
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        "https://cdn.jsdelivr.net",
+        "https://cdnjs.cloudflare.com"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'", // can remove later?
+        "https://cdnjs.cloudflare.com"
+      ],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: [
+        "'self'",
+        process.env.SUPABASE_URL,
+        "https://scamguard-main.onrender.com"
+      ].filter(Boolean),
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
+    }
+  },
+  hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+  referrerPolicy: { policy: "no-referrer" },
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  xDnsPrefetchControl: { allow: false },
+  noSniff: true,
+  frameguard: { action: "deny" }
+}));
 
 // serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
