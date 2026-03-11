@@ -214,6 +214,11 @@ function hasUsableAnalysis(record) {
     return false;
 }
 
+function isUuid(value) {
+    const normalized = String(value || '').trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized);
+}
+
 async function requireAdmin(req, res, next) {
     try {
         const authHeader = req.headers.authorization || '';
@@ -415,6 +420,7 @@ app.post('/delete-account', async (req, res) => {
 app.post('/queue-analysis', async (req, res) => {
     const { report_id } = req.body;
     if (!report_id) return res.status(400).json({ error: 'missing report_id' });
+    if (!isUuid(report_id)) return res.status(400).json({ error: 'invalid report_id format' });
 
     try {
         console.log('[Server] /queue-analysis called for report:', report_id);
@@ -535,6 +541,9 @@ app.post('/queue-analysis', async (req, res) => {
  */
 app.get('/analysis-status/:report_id', async (req, res) => {
     const { report_id } = req.params;
+    if (!isUuid(report_id)) {
+        return res.status(400).json({ error: 'Invalid report_id format' });
+    }
 
     try {
         const { data, error } = await supabase
@@ -582,6 +591,9 @@ app.get('/analysis-status/:report_id', async (req, res) => {
  */
 app.get('/analyses/:report_id', async (req, res) => {
     const { report_id } = req.params;
+    if (!isUuid(report_id)) {
+        return res.status(400).json({ error: 'Invalid report_id format' });
+    }
 
     try {
         const { data, error } = await supabase
@@ -872,6 +884,7 @@ app.get('/admin/security-posture', requireAdmin, async (req, res) => {
         const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
         const hasAnonKey = Boolean(process.env.SUPABASE_ANON_KEY);
         const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL);
+        const hasBackendSupabaseConfig = hasServiceRole && hasSupabaseUrl;
         const corsUsesEnvAllowlist = configuredAllowedOrigins.length > 0;
         const hasWildcardCors = allowedOrigins.includes('*');
 
@@ -1002,10 +1015,12 @@ app.get('/admin/security-posture', requireAdmin, async (req, res) => {
             {
                 id: 'supabase-runtime-config',
                 title: 'Supabase Runtime Config Present',
-                status: (hasAnonKey && hasSupabaseUrl) ? 'pass' : 'fail',
-                details: (hasAnonKey && hasSupabaseUrl)
-                    ? 'SUPABASE_URL and SUPABASE_ANON_KEY are present.'
-                    : 'SUPABASE_URL or SUPABASE_ANON_KEY is missing.',
+                status: hasBackendSupabaseConfig ? 'pass' : 'fail',
+                details: hasBackendSupabaseConfig
+                    ? (hasAnonKey
+                        ? 'Backend SUPABASE_URL + service-role config is present; ANON key also present.'
+                        : 'Backend SUPABASE_URL + service-role config is present; ANON key is not required server-side.')
+                    : 'Missing backend SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.',
             },
             {
                 id: 'xss-probe',
@@ -1138,6 +1153,7 @@ app.get('/admin/reports', requireAdmin, async (req, res) => {
 app.delete('/admin/reports/:reportId', requireAdmin, async (req, res) => {
     const reportId = req.params.reportId;
     if (!reportId) return res.status(400).json({ error: 'Missing report ID' });
+    if (!isUuid(reportId)) return res.status(400).json({ error: 'Invalid report ID format' });
 
     try {
         const { data: reportRow, error: lookupError } = await supabase
