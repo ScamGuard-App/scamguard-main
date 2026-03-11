@@ -814,6 +814,14 @@ nav .logo { margin-right: 12px; }
     align-items: center;
 }
 
+.admin-ai-controls a.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    flex: 0 0 auto;
+}
+
 .admin-limit-input {
     min-width: 170px;
     max-width: 220px;
@@ -864,6 +872,112 @@ nav .logo { margin-right: 12px; }
     text-align: center;
     color: #9ca3af;
     padding: 1rem;
+}
+
+.security-posture-page {
+    max-width: 1200px;
+}
+
+.security-posture-kpis .admin-kpi-card {
+    border-left: 3px solid rgba(96, 174, 219, 0.55);
+}
+
+.security-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.security-meta-item {
+    background: rgba(30, 41, 59, 0.62);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 10px;
+    padding: 0.75rem;
+}
+
+.security-meta-label {
+    color: #9ca3af;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.security-meta-value {
+    margin-top: 0.35rem;
+    color: #e5e7eb;
+    font-weight: 650;
+}
+
+.posture-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.posture-item {
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(17, 24, 39, 0.66);
+    padding: 0.85rem;
+}
+
+.posture-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    margin-bottom: 0.4rem;
+}
+
+.posture-item-header h3 {
+    margin: 0;
+    font-size: 0.98rem;
+}
+
+.posture-item p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.posture-pill {
+    border-radius: 999px;
+    padding: 0.18rem 0.56rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.posture-pill-pass {
+    background: rgba(22, 163, 74, 0.22);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.posture-pill-warn {
+    background: rgba(217, 119, 6, 0.24);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.posture-pill-fail {
+    background: rgba(220, 38, 38, 0.22);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.posture-pass {
+    border-left: 3px solid rgba(34, 197, 94, 0.55);
+}
+
+.posture-warn {
+    border-left: 3px solid rgba(245, 158, 11, 0.58);
+}
+
+.posture-fail {
+    border-left: 3px solid rgba(239, 68, 68, 0.62);
 }
 
 /* Privacy policy page */
@@ -1021,6 +1135,11 @@ nav .logo { margin-right: 12px; }
 
     .reports-search-btn {
         width: 100%;
+    }
+
+    .security-meta-grid,
+    .posture-list {
+        grid-template-columns: 1fr;
     }
 }
 .modal-title-section {

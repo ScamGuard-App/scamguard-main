@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Security Posture - Scamguard Admin</title>
+
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('scamguardAccessibilitySettings')
+                    || localStorage.getItem('accountAccessibilitySettings');
+                if (!saved) return;
+                var settings = JSON.parse(saved);
+                if (settings.monospace) document.documentElement.setAttribute('data-a11y-font', 'mono');
+                if (settings.disableBackground) document.documentElement.setAttribute('data-a11y-starfield-disabled', 'true');
+                if (settings.reduceMotion) document.documentElement.setAttribute('data-a11y-reduce-motion', 'true');
+            } catch (e) {
+                // Ignore malformed values.
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div id="stars" aria-hidden="true"></div>
+    <div id="stars2" aria-hidden="true"></div>
+    <div id="stars3" aria-hidden="true"></div>
+
+    <nav>
+        <div class="logo">
+            <i class="fas fa-exclamation-circle" style="color: #c41c3b;"></i>
+        </div>
+        <div class="links">
+            <a href="index.html" class="nav-link">Home</a>
+            <a href="reports.html" class="nav-link">Search</a>
+            <a href="learn.html" class="nav-link">Learn</a>
+            <a href="report.html" class="nav-link">Submit Report</a>
+            <a href="admin.html" class="nav-link">Admin</a>
+            <a href="security-posture.html" class="nav-link active">Security Posture</a>
+        </div>
+    </nav>
+
+    <main class="content admin-dashboard security-posture-page">
+        <h1>Security Posture</h1>
+        <p class="admin-subtitle">Operational view of platform safeguards for admins and demos.</p>
+
+        <section class="admin-kpis security-posture-kpis">
+            <article class="admin-kpi-card">
+                <div class="admin-kpi-label">Security Score</div>
+                <div class="admin-kpi-value" id="postureScore">-</div>
+            </article>
+            <article class="admin-kpi-card">
+                <div class="admin-kpi-label">Passing Controls</div>
+                <div class="admin-kpi-value" id="posturePass">-</div>
+            </article>
+            <article class="admin-kpi-card">
+                <div class="admin-kpi-label">Warnings / Fails</div>
+                <div class="admin-kpi-value" id="postureRisk">-</div>
+            </article>
+        </section>
+
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2>Runtime Context</h2>
+                <button id="refreshPostureBtn" class="btn btn-reset" type="button">Refresh</button>
+            </div>
+            <div id="postureMeta" class="security-meta-grid"></div>
+            <p id="postureStatus" class="admin-muted">Loading security posture...</p>
+        </section>
+
+        <section class="admin-panel">
+            <div class="admin-panel-header">
+                <h2>Control Checklist</h2>
+            </div>
+            <div id="postureChecklist" class="posture-list" aria-live="polite"></div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <a href="privacy.html">Privacy Policy</a>
+            <span aria-hidden="true">|</span>
+            <a href="https://github.com/ScamGuard-App/scamguard-main" target="_blank" rel="noopener noreferrer">Source Code</a>
+            <span aria-hidden="true">|</span>
+            <span class="site-footer-copy">ScamGuard, 2026</span>
+        </div>
+    </footer>
+
+    <script src="js/starfield.js"></script>
+    <script src="js/accountAccessibility.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/supabase.js?v=20260309"></script>
+    <script type="module" src="js/nav.js?v=20260309"></script>
+    <script type="module" src="js/securityPosture.js?v=20260311"></script>
+</body>
+</html>

@@ -864,6 +864,201 @@ app.get('/admin/ai-diagnostics', requireAdmin, async (req, res) => {
 });
 
 /**
+ * Admin: security posture snapshot (high-level controls + quick signals).
+ */
+app.get('/admin/security-posture', requireAdmin, async (req, res) => {
+    try {
+        const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+        const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+        const hasAnonKey = Boolean(process.env.SUPABASE_ANON_KEY);
+        const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL);
+        const corsUsesEnvAllowlist = configuredAllowedOrigins.length > 0;
+        const hasWildcardCors = allowedOrigins.includes('*');
+
+        const listenPort = process.env.PORT || 3000;
+        const inferredBaseUrl = `${req.protocol}://${req.get('host')}`;
+        const baseUrlCandidates = [
+            `http://127.0.0.1:${listenPort}`,
+            inferredBaseUrl,
+        ];
+
+        async function safeFetch(pathname) {
+            let lastError = null;
+
+            for (const baseUrl of baseUrlCandidates) {
+                const url = `${baseUrl}${pathname}`;
+                try {
+                    return await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            Accept: 'application/json,text/html;q=0.9,*/*;q=0.8',
+                        },
+                    });
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+
+            throw lastError || new Error('Self-check request failed');
+        }
+
+        async function runHeaderChecks() {
+            const response = await safeFetch('/');
+            const csp = response.headers.get('content-security-policy');
+            const xfo = response.headers.get('x-frame-options');
+            const xcto = response.headers.get('x-content-type-options');
+            const referrer = response.headers.get('referrer-policy');
+            const hsts = response.headers.get('strict-transport-security');
+
+            return {
+                csp: Boolean(csp),
+                xfo: Boolean(xfo),
+                xcto: Boolean(xcto),
+                referrerPolicy: Boolean(referrer),
+                hsts: Boolean(hsts),
+            };
+        }
+
+        async function runUnauthorizedAdminCheck() {
+            const response = await safeFetch('/admin/dashboard-data');
+            return response.status === 401 || response.status === 403;
+        }
+
+        async function runSqliProbe() {
+            const probe = encodeURIComponent("' OR '1'='1");
+            const response = await safeFetch(`/analysis-status/${probe}`);
+            const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+            // Probe should never trigger a server error regardless of path payload.
+            return response.status < 500 && contentType.includes('application/json');
+        }
+
+        async function runXssProbe() {
+            const probe = encodeURIComponent('<script>alert(1)</script>');
+            const response = await safeFetch(`/analysis-status/${probe}`);
+            const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+            // For this API route we expect strict JSON responses, not executable HTML.
+            return contentType.includes('application/json');
+        }
+
+        const [headerChecks, unauthorizedAdminBlocked, sqliProbeSafe, xssProbeSafe] = await Promise.all([
+            runHeaderChecks(),
+            runUnauthorizedAdminCheck(),
+            runSqliProbe(),
+            runXssProbe(),
+        ]);
+
+        const missingHeaders = [
+            headerChecks.csp ? null : 'CSP',
+            headerChecks.xfo ? null : 'X-Frame-Options',
+            headerChecks.xcto ? null : 'X-Content-Type-Options',
+            headerChecks.referrerPolicy ? null : 'Referrer-Policy',
+        ].filter(Boolean);
+
+        const checklist = [
+            {
+                id: 'admin-auth-guard',
+                title: 'Admin API Authorization Guard',
+                status: unauthorizedAdminBlocked ? 'pass' : 'fail',
+                details: unauthorizedAdminBlocked
+                    ? 'Unauthenticated request to /admin/dashboard-data was blocked.'
+                    : 'Unauthenticated request to /admin/dashboard-data was not blocked as expected.',
+            },
+            {
+                id: 'cors-allowlist',
+                title: 'Origin Allowlist (CORS)',
+                status: hasWildcardCors ? 'fail' : (corsUsesEnvAllowlist ? 'pass' : 'warn'),
+                details: hasWildcardCors
+                    ? 'Wildcard CORS origin detected; use explicit allowlist only.'
+                    : (corsUsesEnvAllowlist
+                        ? 'CORS_ALLOWED_ORIGINS is configured via environment.'
+                        : 'Using default allowlist. Configure CORS_ALLOWED_ORIGINS for production.'),
+            },
+            {
+                id: 'security-headers',
+                title: 'Security Headers Coverage',
+                status: missingHeaders.length === 0 ? 'pass' : 'warn',
+                details: missingHeaders.length === 0
+                    ? 'CSP, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy were detected.'
+                    : `Missing or undetected headers: ${missingHeaders.join(', ')}`,
+            },
+            {
+                id: 'hsts-production',
+                title: 'HSTS in Production',
+                status: isProd ? (headerChecks.hsts ? 'pass' : 'warn') : 'warn',
+                details: isProd
+                    ? (headerChecks.hsts
+                        ? 'Strict-Transport-Security header detected in production mode.'
+                        : 'Production mode detected but Strict-Transport-Security header was not observed.')
+                    : 'NODE_ENV is not production, so HSTS is advisory only in this environment.',
+            },
+            {
+                id: 'service-role-storage',
+                title: 'Service Role Key Kept Server-Side',
+                status: hasServiceRole ? 'pass' : 'fail',
+                details: hasServiceRole
+                    ? 'SUPABASE_SERVICE_ROLE_KEY exists on backend environment.'
+                    : 'SUPABASE_SERVICE_ROLE_KEY missing on backend environment.',
+            },
+            {
+                id: 'supabase-runtime-config',
+                title: 'Supabase Runtime Config Present',
+                status: (hasAnonKey && hasSupabaseUrl) ? 'pass' : 'fail',
+                details: (hasAnonKey && hasSupabaseUrl)
+                    ? 'SUPABASE_URL and SUPABASE_ANON_KEY are present.'
+                    : 'SUPABASE_URL or SUPABASE_ANON_KEY is missing.',
+            },
+            {
+                id: 'xss-probe',
+                title: 'Basic Reflected XSS Probe (API)',
+                status: xssProbeSafe ? 'pass' : 'warn',
+                details: xssProbeSafe
+                    ? 'Script-tag probe returned JSON response (not executable HTML).'
+                    : 'Probe did not return JSON as expected. Review output encoding and response handling.',
+            },
+            {
+                id: 'sqli-probe',
+                title: 'Basic SQL Injection Probe (Path Param)',
+                status: sqliProbeSafe ? 'pass' : 'warn',
+                details: sqliProbeSafe
+                    ? 'SQLi-like payload did not trigger server error on analysis-status route.'
+                    : 'SQLi probe caused unexpected server behavior; inspect query/input handling paths.',
+            },
+            {
+                id: 'rate-limit-awareness',
+                title: 'Rate Limiting on Sensitive Routes',
+                status: 'warn',
+                details: 'No runtime assertion is present yet for rate limiting; recommended for auth/admin/report endpoints.',
+            },
+        ];
+
+        const totals = {
+            pass: checklist.filter((item) => item.status === 'pass').length,
+            warn: checklist.filter((item) => item.status === 'warn').length,
+            fail: checklist.filter((item) => item.status === 'fail').length,
+            score: Math.round((checklist.filter((item) => item.status === 'pass').length / checklist.length) * 100),
+        };
+
+        res.json({
+            generatedAt: new Date().toISOString(),
+            environment: {
+                nodeEnv: process.env.NODE_ENV || 'development',
+                llmProvider: LLM_PROVIDER,
+                useRedisQueue: USE_REDIS_QUEUE,
+                inlineFallbackEnabled: ENABLE_INLINE_ANALYSIS_FALLBACK,
+                allowedOriginsCount: allowedOrigins.length,
+                inferredBaseUrl,
+                selfCheckBaseCandidates: baseUrlCandidates,
+            },
+            totals,
+            checklist,
+        });
+    } catch (err) {
+        console.error('[Server] admin security-posture error:', err);
+        res.status(500).json({ error: 'Failed to load security posture' });
+    }
+});
+
+/**
  * Admin: list users from Supabase Auth.
  */
 app.get('/admin/users', requireAdmin, async (req, res) => {
