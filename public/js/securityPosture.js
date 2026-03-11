@@ -1,4 +1,4 @@
-import { ensureSupabase } from './supabase.js';
+import { ensureSupabase } from './supabase.public.js';
 import { getApiCandidates } from './api.js';
 import { escapeHtml } from './utils.js';
 

@@ -1,4 +1,4 @@
-import supabase, { ensureSupabase } from './supabase.js';
+import supabase, { ensureSupabase } from './supabase.public.js';
 import { escapeHtml, getTimeAgo } from './utils.js';
 
 // Initialize on page load

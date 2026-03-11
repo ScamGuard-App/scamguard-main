@@ -1,4 +1,4 @@
-import supabase, { ensureSupabase } from './supabase.js';
+import supabase, { ensureSupabase } from './supabase.public.js';
 import { getApiCandidates } from './api.js';
 
 // grab DOM elements once the document is ready

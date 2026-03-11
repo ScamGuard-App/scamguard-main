@@ -1,5 +1,5 @@
 /*
-  Copy this file to `supabase.js` and fill in your project values.
+  Copy this file to `supabase.public.js` and fill in your project values.
 */
 
 const SUPABASE_URL = "https://your-project-ref.supabase.co";

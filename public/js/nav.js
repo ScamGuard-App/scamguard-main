@@ -1,4 +1,4 @@
-import supabase, { ensureSupabase } from './supabase.js';
+import supabase, { ensureSupabase } from './supabase.public.js';
 
 // ensure navigation links reflect auth state
 export async function updateNav() {
