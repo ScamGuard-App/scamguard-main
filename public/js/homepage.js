@@ -1,5 +1,5 @@
-import supabase, { ensureSupabase } from './supabase.public.js';
 import { escapeHtml, getTimeAgo } from './utils.js';
+import { getApiCandidates } from './api.js';
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,27 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadHomepageData() {
     try {
-        const sb = await ensureSupabase();
-        
-        if (!sb) {
-            console.error('Supabase client failed to initialize');
+        const reports = await fetchHomepageReports();
+
+        if (!Array.isArray(reports)) {
+            console.error('Error loading reports: invalid response payload');
             displayLoadError();
             return;
         }
-
-        // Home view intentionally reads a broad slice; cards and chart derive from same dataset.
-        const { data, error } = await sb
-            .from('reports')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error loading reports:', error);
-            displayLoadError();
-            return;
-        }
-
-        const reports = data || [];
 
         updateStatistics(reports);
 
@@ -52,6 +38,43 @@ async function loadHomepageData() {
         console.error('Error:', err);
         displayLoadError();
     }
+}
+
+async function fetchHomepageReports() {
+    const endpoints = getApiCandidates('/reports-with-analysis');
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+        try {
+            const response = await fetch(endpoint, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+
+            if ((response.status === 404 || response.status === 405) && endpoint.startsWith('/')) {
+                continue;
+            }
+
+            if (!response.ok) {
+                lastError = new Error(`Homepage reports request failed (${response.status})`);
+                continue;
+            }
+
+            const payload = await response.json().catch(() => ({}));
+            if (!Array.isArray(payload?.reports)) {
+                lastError = new Error('Homepage reports payload missing reports array');
+                continue;
+            }
+
+            return payload.reports;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    throw lastError || new Error('No homepage reports endpoint is reachable');
 }
 
 function updateStatistics(reports) {

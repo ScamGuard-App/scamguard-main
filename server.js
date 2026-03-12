@@ -31,6 +31,13 @@ const ENABLE_INLINE_ANALYSIS_FALLBACK = String(process.env.ENABLE_INLINE_ANALYSI
 const INLINE_ADMIN_RERUN_MAX = Number(process.env.INLINE_ADMIN_RERUN_MAX || 25);
 const LLM_PROVIDER = String(process.env.LLM_PROVIDER || 'ollama').toLowerCase();
 const OLLAMA_URL = String(process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
+const ACCOUNT_DELETE_WINDOW_MS = Number(process.env.ACCOUNT_DELETE_WINDOW_MS || 10 * 60 * 1000);
+const ACCOUNT_DELETE_MAX_REQUESTS = Number(process.env.ACCOUNT_DELETE_MAX_REQUESTS || 5);
+const QUEUE_ANALYSIS_WINDOW_MS = Number(process.env.QUEUE_ANALYSIS_WINDOW_MS || 60 * 1000);
+const QUEUE_ANALYSIS_MAX_REQUESTS = Number(process.env.QUEUE_ANALYSIS_MAX_REQUESTS || 30);
+const ADMIN_API_WINDOW_MS = Number(process.env.ADMIN_API_WINDOW_MS || 60 * 1000);
+const ADMIN_API_MAX_REQUESTS = Number(process.env.ADMIN_API_MAX_REQUESTS || 60);
+const rateLimitBuckets = new Map();
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -219,35 +226,114 @@ function isUuid(value) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized);
 }
 
+function getClientIp(req) {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (forwarded) return forwarded;
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function extractBearerToken(req) {
+    const authHeader = req.headers.authorization || '';
+    return authHeader.startsWith('Bearer ')
+        ? authHeader.slice('Bearer '.length).trim()
+        : '';
+}
+
+function createRateLimiter(options) {
+    const windowMs = Number(options?.windowMs) || 60 * 1000;
+    const max = Number(options?.max) || 60;
+    const id = String(options?.id || 'default');
+    const message = String(options?.message || 'Too many requests');
+
+    return function rateLimiter(req, res, next) {
+        const keySource = typeof options?.keyFn === 'function'
+            ? options.keyFn(req)
+            : `${getClientIp(req)}:${req.path}`;
+        const key = `${id}:${String(keySource || 'anonymous')}`;
+        const now = Date.now();
+        const bucket = rateLimitBuckets.get(key);
+
+        if (!bucket || now >= bucket.resetAt) {
+            rateLimitBuckets.set(key, { count: 1, resetAt: now + windowMs });
+            return next();
+        }
+
+        if (bucket.count >= max) {
+            const retryAfterSeconds = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+            res.set('Retry-After', String(retryAfterSeconds));
+            return res.status(429).json({ error: message });
+        }
+
+        bucket.count += 1;
+        return next();
+    };
+}
+
+async function getAuthenticatedUserFromRequest(req) {
+    const token = extractBearerToken(req);
+    if (!token) {
+        return { error: 'Missing bearer token', status: 401, user: null };
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user) {
+        return { error: 'Invalid auth token', status: 401, user: null };
+    }
+
+    return { error: null, status: 200, user: authData.user };
+}
+
+async function isAdminUser(userId) {
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (profileError) {
+        throw new Error(`Admin profile lookup failed: ${profileError.message}`);
+    }
+
+    return Boolean(profile?.is_admin);
+}
+
+const accountDeleteRateLimit = createRateLimiter({
+    id: 'delete-account',
+    windowMs: ACCOUNT_DELETE_WINDOW_MS,
+    max: ACCOUNT_DELETE_MAX_REQUESTS,
+    keyFn: (req) => {
+        const token = extractBearerToken(req);
+        return `${getClientIp(req)}:${token || 'no-token'}`;
+    },
+    message: 'Too many account deletion attempts. Please try again later.',
+});
+
+const queueAnalysisRateLimit = createRateLimiter({
+    id: 'queue-analysis',
+    windowMs: QUEUE_ANALYSIS_WINDOW_MS,
+    max: QUEUE_ANALYSIS_MAX_REQUESTS,
+    keyFn: (req) => getClientIp(req),
+    message: 'Too many analysis queue requests. Please slow down.',
+});
+
+const adminApiRateLimit = createRateLimiter({
+    id: 'admin-api',
+    windowMs: ADMIN_API_WINDOW_MS,
+    max: ADMIN_API_MAX_REQUESTS,
+    keyFn: (req) => getClientIp(req),
+    message: 'Too many admin API requests. Please retry shortly.',
+});
+
 async function requireAdmin(req, res, next) {
     try {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.startsWith('Bearer ')
-            ? authHeader.slice('Bearer '.length).trim()
-            : '';
-
-        if (!token) {
-            return res.status(401).json({ error: 'Missing bearer token' });
+        const auth = await getAuthenticatedUserFromRequest(req);
+        if (auth.error || !auth.user) {
+            return res.status(auth.status).json({ error: auth.error });
         }
 
-        const { data: authData, error: authError } = await supabase.auth.getUser(token);
-        if (authError || !authData?.user) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const userId = authData.user.id;
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', userId)
-            .maybeSingle();
-
-        if (profileError) {
-            console.error('[Server] Admin guard profile error:', profileError);
-            return res.status(500).json({ error: 'Failed to validate admin access' });
-        }
-
-        if (!profile?.is_admin) {
+        const userId = auth.user.id;
+        const admin = await isAdminUser(userId);
+        if (!admin) {
             return res.status(403).json({ error: 'Admin access required' });
         }
 
@@ -388,12 +474,32 @@ async function processAnalysisInline(reportId) {
 // the request is POST /delete-account with JSON { user_id: '...' }.
 // this handler uses the Supabase service-role key (read from .env) to call
 // the admin Users API. Never expose the service key to the browser.
-app.post('/delete-account', async (req, res) => {
-    const { user_id } = req.body;
-    if (!user_id) return res.status(400).json({ error: 'missing user_id' });
+app.post('/delete-account', accountDeleteRateLimit, async (req, res) => {
+    const requestedUserId = String(req.body?.user_id || '').trim();
+
+    if (!requestedUserId) {
+        return res.status(400).json({ error: 'missing user_id' });
+    }
+
+    if (!isUuid(requestedUserId)) {
+        return res.status(400).json({ error: 'invalid user_id format' });
+    }
 
     try {
-        const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users/${user_id}`;
+        const auth = await getAuthenticatedUserFromRequest(req);
+        if (auth.error || !auth.user) {
+            return res.status(auth.status).json({ error: auth.error });
+        }
+
+        const callerUserId = auth.user.id;
+        const callerIsAdmin = await isAdminUser(callerUserId);
+
+        // Only self-delete is allowed for regular users; admins may delete any account.
+        if (!callerIsAdmin && requestedUserId !== callerUserId) {
+            return res.status(403).json({ error: 'Not authorized to delete this account' });
+        }
+
+        const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users/${requestedUserId}`;
         const resp = await fetch(url, {
             method: 'DELETE',
             headers: {
@@ -405,7 +511,7 @@ app.post('/delete-account', async (req, res) => {
             const text = await resp.text();
             return res.status(resp.status).send(text);
         }
-        res.sendStatus(204);
+        res.status(200).json({ success: true, deleted_user_id: requestedUserId });
     } catch (err) {
         console.error('delete-user error', err);
         res.status(500).json({ error: 'server error' });
@@ -417,7 +523,7 @@ app.post('/delete-account', async (req, res) => {
  * Call this after saving a report to the database
  * Request: POST /queue-analysis with JSON { report_id: '...' }
  */
-app.post('/queue-analysis', async (req, res) => {
+app.post('/queue-analysis', queueAnalysisRateLimit, async (req, res) => {
     const { report_id } = req.body;
     if (!report_id) return res.status(400).json({ error: 'missing report_id' });
     if (!isUuid(report_id)) return res.status(400).json({ error: 'invalid report_id format' });
@@ -659,7 +765,7 @@ app.get('/reports-with-analysis', async (req, res) => {
 /**
  * Admin dashboard summary data.
  */
-app.get('/admin/dashboard-data', requireAdmin, async (req, res) => {
+app.get('/admin/dashboard-data', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const [snapshot, users] = await Promise.all([
             buildAdminAnalysisSnapshot(),
@@ -683,7 +789,7 @@ app.get('/admin/dashboard-data', requireAdmin, async (req, res) => {
  * Admin: queue AI reruns for reports.
  * Body: { mode: 'missing' | 'all', limit?: number, dryRun?: boolean }
  */
-app.post('/admin/rerun-ai', requireAdmin, async (req, res) => {
+app.post('/admin/rerun-ai', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const mode = req.body?.mode === 'all' ? 'all' : 'missing';
         const dryRun = Boolean(req.body?.dryRun);
@@ -784,7 +890,7 @@ app.post('/admin/rerun-ai', requireAdmin, async (req, res) => {
 /**
  * Admin: AI diagnostics snapshot (provider config, reachability, queue state, recent errors).
  */
-app.get('/admin/ai-diagnostics', requireAdmin, async (req, res) => {
+app.get('/admin/ai-diagnostics', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const diagnostics = {
             provider: LLM_PROVIDER,
@@ -878,7 +984,7 @@ app.get('/admin/ai-diagnostics', requireAdmin, async (req, res) => {
 /**
  * Admin: security posture snapshot (high-level controls + quick signals).
  */
-app.get('/admin/security-posture', requireAdmin, async (req, res) => {
+app.get('/admin/security-posture', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
         const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -1076,7 +1182,7 @@ app.get('/admin/security-posture', requireAdmin, async (req, res) => {
 /**
  * Admin: list users from Supabase Auth.
  */
-app.get('/admin/users', requireAdmin, async (req, res) => {
+app.get('/admin/users', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const users = await fetchAuthUsers();
         const shaped = users.map((u) => ({
@@ -1097,7 +1203,7 @@ app.get('/admin/users', requireAdmin, async (req, res) => {
 /**
  * Admin: delete an auth user.
  */
-app.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
+app.delete('/admin/users/:userId', adminApiRateLimit, requireAdmin, async (req, res) => {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ error: 'Missing user ID' });
 
@@ -1126,7 +1232,7 @@ app.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
 /**
  * Admin: list reports using service role (bypasses frontend RLS issues).
  */
-app.get('/admin/reports', requireAdmin, async (req, res) => {
+app.get('/admin/reports', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const rawLimit = Number(req.query.limit);
         const limit = Number.isFinite(rawLimit) && rawLimit > 0
@@ -1150,7 +1256,7 @@ app.get('/admin/reports', requireAdmin, async (req, res) => {
 /**
  * Admin: delete report and its related ai_analysis entries.
  */
-app.delete('/admin/reports/:reportId', requireAdmin, async (req, res) => {
+app.delete('/admin/reports/:reportId', adminApiRateLimit, requireAdmin, async (req, res) => {
     const reportId = req.params.reportId;
     if (!reportId) return res.status(400).json({ error: 'Missing report ID' });
     if (!isUuid(reportId)) return res.status(400).json({ error: 'Invalid report ID format' });
@@ -1196,7 +1302,22 @@ app.get(/.*/, (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-    console.log(`Backend listening on port ${port}`);
-    console.log('[Server] Allowed CORS origins:', allowedOrigins.join(', '));
-});
+
+function startServer() {
+    return app.listen(port, () => {
+        console.log(`Backend listening on port ${port}`);
+        console.log('[Server] Allowed CORS origins:', allowedOrigins.join(', '));
+    });
+}
+
+if (require.main === module) {
+    startServer();
+}
+
+module.exports = {
+    app,
+    startServer,
+    parseAllowedOrigins,
+    isUuid,
+    extractBearerToken,
+};

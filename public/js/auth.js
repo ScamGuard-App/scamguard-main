@@ -356,10 +356,21 @@ deleteAccountBtn.addEventListener('click', async e => {
     }
     clearProfileMessages();
     try {
-        const user = (await supabase.auth.getUser()).data.user;
+        const authSnapshot = await supabase.auth.getUser();
+        const user = authSnapshot.data.user;
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token || '';
+
+        if (!user || !accessToken) {
+            throw new Error('Not authenticated');
+        }
+
         const res = await fetch(buildApiUrl('/delete-account'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
             body: JSON.stringify({ user_id: user.id })
         });
         if (!res.ok) throw new Error('Server rejected deletion');
