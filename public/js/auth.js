@@ -7,6 +7,8 @@ const showSignUp = document.getElementById('showSignUp');
 const showLogin = document.getElementById('showLogin');
 const signUpForm = document.getElementById('signUpForm');
 const loginForm = document.getElementById('loginForm');
+const quickLoginRegularBtn = document.getElementById('quickLoginRegular');
+const quickLoginAdminBtn = document.getElementById('quickLoginAdmin');
 
 // messages/errors
 const signUpMsg = document.getElementById('signUpMsg');
@@ -92,15 +94,31 @@ signUpForm.addEventListener('submit', async e => {
 loginForm.addEventListener('submit', async e => {
     e.preventDefault();
     clearAuthMessages();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
 
+    await performLogin(email, password);
+});
+
+function getDemoCredentials(role) {
+    const config = window.SCAMGUARD_DEMO_LOGINS || {};
+    const candidate = role === 'admin' ? config.admin : config.regular;
+    const email = String(candidate?.email || '').trim();
+    const password = String(candidate?.password || '').trim();
+
+    if (!email || !password) {
+        return null;
+    }
+
+    return { email, password };
+}
+
+async function performLogin(email, password) {
     const sb = await ensureSupabase();
     if (!sb) {
         loginError.textContent = 'Unable to connect to auth service';
         return;
     }
-
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
 
     try {
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
@@ -125,7 +143,27 @@ loginForm.addEventListener('submit', async e => {
         console.error('login error', err);
         loginError.textContent = err.message || 'Login failed.';
     }
-});
+}
+
+function applyQuickLogin(role) {
+    clearAuthMessages();
+    switchTo(false);
+
+    const creds = getDemoCredentials(role);
+    if (!creds) {
+        loginError.textContent = `Demo ${role} credentials are not configured.`;
+        return;
+    }
+
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPassword = document.getElementById('loginPassword');
+    loginEmail.value = creds.email;
+    loginPassword.value = creds.password;
+    performLogin(creds.email, creds.password);
+}
+
+quickLoginRegularBtn?.addEventListener('click', () => applyQuickLogin('regular'));
+quickLoginAdminBtn?.addEventListener('click', () => applyQuickLogin('admin'));
 
 // -- profile management elements --
 const profileSection = document.getElementById('profileSection');

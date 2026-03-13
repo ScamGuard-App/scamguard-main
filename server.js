@@ -75,7 +75,6 @@ app.use(helmet({
       ],
       styleSrc: [
         "'self'",
-        "'unsafe-inline'", // can remove later?
         "https://cdnjs.cloudflare.com"
       ],
       imgSrc: ["'self'", "data:"],
@@ -100,7 +99,7 @@ app.use(helmet({
   frameguard: { action: "deny" }
 }));
 
-// serve static files from public directory
+// Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize Redis queue for report analysis (now handled by render)
@@ -473,7 +472,7 @@ async function processAnalysisInline(reportId) {
 // simple endpoint used by the client to delete the currently logged-in user.
 // the request is POST /delete-account with JSON { user_id: '...' }.
 // this handler uses the Supabase service-role key (read from .env) to call
-// the admin Users API. Never expose the service key to the browser.
+// the admin Users API.
 app.post('/delete-account', accountDeleteRateLimit, async (req, res) => {
     const requestedUserId = String(req.body?.user_id || '').trim();
 
@@ -518,11 +517,10 @@ app.post('/delete-account', accountDeleteRateLimit, async (req, res) => {
     }
 });
 
-/**
- * Queue report for LLM analysis
- * Call this after saving a report to the database
- * Request: POST /queue-analysis with JSON { report_id: '...' }
- */
+// Queue report for LLM analysis
+// Call this after saving a report to the database
+// Request: POST /queue-analysis with JSON { report_id: '...' }
+
 app.post('/queue-analysis', queueAnalysisRateLimit, async (req, res) => {
     const { report_id } = req.body;
     if (!report_id) return res.status(400).json({ error: 'missing report_id' });

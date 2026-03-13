@@ -88,6 +88,13 @@
             <div class="button-group">
                 <button type="submit" id="loginBtn" class="btn btn-submit">Log In</button>
             </div>
+            <div class="button-group" style="margin-top: 0.75rem;">
+                <button type="button" id="quickLoginRegular" class="btn btn-reset">Log In As Regular User</button>
+                <button type="button" id="quickLoginAdmin" class="btn btn-reset">Log In As Admin User</button>
+            </div>
+            <p style="margin-top: 0.75rem; color: #9ca3af; font-size: 0.85rem;">
+                Quick login buttons use configured demo credentials for marker testing.
+            </p>
         </form>
 
         <!-- profile management for logged‑in users -->
@@ -171,6 +178,14 @@
     <script src="js/starfield.js"></script>
     <script src="js/accountAccessibility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Demo credentials for marker quick-login -->
+    <script>
+        window.SCAMGUARD_DEMO_LOGINS = {
+            regular: { email: 'stangoejoshua@gmail.com', password: 'w0w0w0w0w0w' },
+            admin:   { email: 'scamguardweb@gmail.com',   password: 'wow123wow123' }
+        };
+    </script>
     <script type="module" src="js/supabase.public.js?v=20260311"></script>
     <script type="module" src="js/nav.js?v=20260309"></script>
     <script type="module" src="js/auth.js?v=20260309"></script>
