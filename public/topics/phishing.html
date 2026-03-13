@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Phishing Scams - ScamGuard Learn</title>
+
+    <!-- Accessibility settings check -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('scamguardAccessibilitySettings')
+                    || localStorage.getItem('accountAccessibilitySettings');
+                if (!saved) return;
+                var settings = JSON.parse(saved);
+                if (settings.monospace) document.documentElement.setAttribute('data-a11y-font', 'mono');
+                if (settings.disableBackground) document.documentElement.setAttribute('data-a11y-starfield-disabled', 'true');
+                if (settings.reduceMotion) document.documentElement.setAttribute('data-a11y-reduce-motion', 'true');
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
+</head>
+<body>
+    <div id="stars" aria-hidden="true"></div>
+    <div id="stars2" aria-hidden="true"></div>
+    <div id="stars3" aria-hidden="true"></div>
+
+    <nav>
+        <div class="logo">
+            <i class="fa-solid fa-code"></i>
+        </div>
+        <div class="links">
+            <a href="../index.html" class="nav-link">Home</a>
+            <a href="../reports.html" class="nav-link">Search</a>
+            <a href="../learn.html" class="active nav-link">Learn</a>
+            <a href="../report.html" class="nav-link">Submit Report</a>
+        </div>
+    </nav>
+
+    <main class="topic-container">
+
+        <!-- Breadcrumb -->
+        <nav class="topic-breadcrumb" aria-label="Breadcrumb">
+            <a href="../learn.html"><i class="fas fa-graduation-cap"></i> Learn</a>
+            <span aria-hidden="true"> › </span>
+            <span>Phishing Scams</span>
+        </nav>
+
+        <!-- Page hero -->
+        <header class="topic-hero">
+            <div class="topic-hero-icon" aria-hidden="true">
+                <i class="fas fa-envelope-open-text"></i>
+            </div>
+            <div class="topic-hero-text">
+                <h1>Phishing Scams</h1>
+                <p>Learn how attackers use deceptive emails, messages and fake websites to steal your personal information.</p>
+            </div>
+        </header>
+
+        <!-- Main article -->
+        <article class="topic-article">
+
+                <div class="topic-warning-box" role="note" aria-label="Warning signs">
+                    <h3><i class="fas fa-shield-alt" aria-hidden="true"></i> Warning Signs to Watch For</h3>
+                    <ul>
+                        <li> Mismatched or suspicious sender email address</li>
+                        <li> Urgent or threatening language ("Your account will be closed")</li>
+                        <li> Generic greetings ("Dear Customer") instead of your name</li>
+                        <li> Links that don't match the claimed organisation's domain</li>
+                        <li> Requests for sensitive information via email or message</li>
+                        <li> Spelling or grammatical mistakes, or poorly written communication</li>
+                        <li> Unexpected attachments, especially with strange names or extensions, particularly .exe files</li>
+                    </ul>
+                </div>
+            
+
+            <!-- ─── Section: What is phishing ─── -->
+            <section class="topic-section" id="what-is-phishing">
+                <h2><i class="fas fa-question-circle" aria-hidden="true"></i> What Is a Phishing Scam?</h2>
+                <p>
+                    Phishing is one of the most common, and most public, forms of scams that circulate our internet today.
+                    Phishing attacks typically involve an attacker impersonating a trusted organisation or individual in order to
+                    trick victims into revealing sensitive information such as login credentials, financial details, or personal data.
+                    There are many methods through which phishing is carried out - it can be targeted to individuals or generic and mass produced,
+                    and can be delivered through many methods such as email, texts, calls, and social media messages.
+                </p>
+                <p>
+                    According to zensec, an estimated 3.4 billion phishing emails are sent every day, and in 2024 cost an estimated $70 million.
+                    Because of the rapid rate at which they can be produced, they are by far the biggest cyber risk in the world right now,
+                    and are a major contributor to cyber crime, often being the first step in a multi-layer attack scheme.
+                </p>
+
+                <figure class="topic-figure">
+                    <img
+                        src="../assets/topics/phishing-example.png"
+                        alt="Example of a phishing email attempting to mimic a legitimate bank notification"
+                        class="topic-img"
+                    >
+                    <figcaption>
+                        Example of a phishing email.
+                    </figcaption>
+                </figure>
+
+                <p>
+                    Phishing emails are still the most common, and often the easiest to spot. As shown in the above example, there are numerous
+                    telltale signs that can help identify fraudulent emails.
+                </p>
+
+                <p>
+                    Firstly, the email comes from "DevinRobinson@prettysadity.onmicrosoft.com" - doesn't exactly seem like a legitimate Klarna email address does it?
+                </p>
+                
+                <p>
+                    Secondly, the email tries to urge the user to act fast - stating they won't be able to continue managing their purchases, and using commands
+                    like "check" and "verify". This sort of language plays on our psychology as it urges us to make decisions without proper thought, leading to
+                    rash and poor decisions.
+                </p>
+
+                <p>
+                    Thirdly, the email does not call the user by name - instead using a generic "Hi there!" insinuating that this is a mass-produced message.
+                </p>
+            </section>
+
+            <!-- ─── Section: Common types ─── -->
+            <section class="topic-section" id="common-types">
+                <h2><i class="fas fa-list-ul" aria-hidden="true"></i> Common Types of Phishing</h2>
+
+                <h3>Email phishing</h3>
+                <p>
+                    Emails are the most common form of phishing, and are often mass-produced and easy to spot. They typically involve fake 
+                    sender addresses that mimic legitimate organisations, urgent language that pressures the recipient to act quickly, 
+                    and links that lead to fake login pages designed to steal credentials. These emails may also contain attachments that,
+                     when opened, can install malware on the victim's device. This is why as a best practice, if an email looks suspicious,
+                     it's best to avoid opening the email in the first place, and to never download an attachment or file from an email.
+                </p>
+
+                <h3>Spear phishing</h3>
+                <p>
+                    These are attacks that focus on targetting individuals specifically. This may include using their full name, job role, specific interests, or
+                    other personal details to make the message seem more convincing. These details are often scraped from social media profiles,
+                    using websites like Instagram, X (formerly Twitter), LinkedIn and others.
+                </p>
+
+                <p>
+                    These are particularly hard to deal with because their intent is to be personable and convincing, and are much higher
+                    quality fakes than generic emails like the above example.
+                </p>
+
+                <p>
+                    The primary goal of these scams is to trick the victim into providing sensitive information such as login credentials, bank details or
+                    personal identification. This often involves a fake website that mimics a legitimate website, such as a fake bank login page
+                    or social media site.
+                </p>
+
+                <p>
+                    The primary way to spot these is checking the links that are given - hovering over hyperlinks will show the real URL
+                    in the bottom corner of the scren - if it does not match the organisation's domain, then it is likely a scam. For example, 
+                    a link that claims to be from "Amazon" but leads to "amaz0n-login.com" is a strong indicator of phishing.
+                    Often, these websites won't even have convincing URLs to begin with, but higher effort fakes may use similar domains.
+                </p>
+
+                <h3>Smishing (SMS phishing)</h3>
+                <p>
+                    Smishing, or "SMS Phishing", is a type of phishing attack that occurs through text messages. Attackers send fraudulent messages 
+                    that appear to be from reputable sources such as delivery services, banks, or popular retailers. These messages often contain urgent
+                    language, prompting recipients to click on a link, provide personal information, or even make a payment to resolve an issue. 
+                    For example, a common smishing scam involves fake parcel delivery notifications that claim there is an issue with the delivery and 
+                    require the recipient to click a link to resolve it. Often, like emails, these will be generic and non-tailored, so they will not
+                    mention any personal details, thus reinforcing that it is a scam.
+                </p>
+
+                <p>
+                    As with most phishing attacks, the best method to defend yourself is to use applications and websites directly, rather than trust
+                    unsocilited messages. In the modern age, apps are always the primary hub for all information, and unsolicited messages should
+                    always be treated with caution.
+                </p>
+
+                <h3>Vishing (Voice phishing)</h3>
+                <p>
+                    Vishing, or "VOIP Phishing", is a type of phishing attack that occurs over the phone. Attackers impersonate trusted entities such as banks, 
+                    government agencies (like HMRC), or tech support representatives to trick victims into revealing sensitive information. 
+                    They may use caller ID spoofing to make it appear as though the call is coming from a legitimate source. 
+                    Common tactics include claiming there is an urgent issue with the victim's account, offering a prize or reward, 
+                    or requesting verification of personal information. As with other forms of phishing, it's important to be cautious and verify the identity
+                    of the caller before sharing any information.
+                </p>
+
+                <p>
+                    These are particularly common with delivery servicesd like DHL, FedEx, Royal Mail etc. as eCommerce grows and deliveries become more pertinent
+                    to our daily lives. These will often claim to be from the delivery company, and will say there is an issue with the delivery that requires
+                    the user to click a link, provide information, or even pay money to avoid some kind of fee or tax.
+                </p>
+
+                <p>
+                    When it comes to these kind of attacks, the primary defense method is to treat all unsolicited messages with suspicion, and to verify any
+                    claims through official channels. For example, if you receive a text claiming to be from your bank about an issue with your account,
+                    it's best to ignore the message and contact your bank directly or check on your local app. Banks will rarely ever communicate through
+                    direct message or call services due to the existence of apps. 
+                    Similarly, for delivery notifications, it's safer to go directly to the delivery company's website or the app you used to order the item,
+                    and enter your tracking number there, rather than clicking on a link in a text message.
+                </p>
+
+                <figure class="topic-figure">
+                    <img
+                        src="../assets/topics/phishing-types.png"
+                        alt="Diagram showing the six main phishing types: email, spear, smishing, content spoofing, link manipulation and vishing"
+                        class="topic-img"
+                    >
+                    <figcaption>
+                        Overview of phishing attack types. Credit: https://www.bvainc.com/2022/01/06/12-types-of-phishing-attacks-and-how-to-identify-them/ <!-- Credit: TODO: add source/credit -->
+                    </figcaption>
+                </figure>
+            </section>
+
+            <!-- ─── Section: What to do if targeted ─── -->
+            <section class="topic-section" id="what-to-do">
+                <h2><i class="fas fa-first-aid" aria-hidden="true"></i> What to Do If You've Been Targeted</h2>
+
+                <div class="topic-steps">
+                    <div class="topic-step">
+                        <span class="step-number">1</span>
+                        <div>
+                            <strong>Do not click any links</strong>
+                        </div>
+                    </div>
+                    <div class="topic-step">
+                        <span class="step-number">2</span>
+                        <div>
+                            <strong>Change your passwords immediately</strong>
+                        </div>
+                    </div>
+                    <div class="topic-step">
+                        <span class="step-number">3</span>
+                        <div>
+                            <strong>Contact your bank or card provider, or the application provider related to the scam</strong>
+                        </div>
+                    </div>
+                    <div class="topic-step">
+                        <span class="step-number">4</span>
+                        <div>
+                            <strong>Report it to the relevant authority</strong>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Section: Prevention ─── -->
+            <section class="topic-section" id="prevention">
+                <h2><i class="fas fa-lock" aria-hidden="true"></i> How to Protect Yourself</h2>
+
+                <div class="topic-tip-grid">
+                    <div class="topic-tip">
+                        <i class="fas fa-envelope-open" aria-hidden="true"></i>
+                        <h4>Verify the Sender</h4>
+                        <p>Always check the email name first - look for misspellings, unusual email domains or names, or generic names</p>
+                    </div>
+                    <div class="topic-tip">
+                        <i class="fas fa-link" aria-hidden="true"></i>
+                        <h4>Hover Before You Click</h4>
+                        <p>Hovering on a hyperlink will display the true link in the bottom of your screen. If it says something like "tinyurl" then
+                            use link unshorteners like https://unshorten.it/ to check the true intention.
+                        </p>
+                    </div>
+                    <div class="topic-tip">
+                        <i class="fas fa-mobile-alt" aria-hidden="true"></i>
+                        <h4>Enable Two-Factor Authentication</h4>
+                        <p>Many services offer you to use your phone number or an application to verify your identity. This is a critical step for
+                            security as it allows you to know if someone tries to access your account, and you can block them.
+                        </p>
+                    </div>
+                    <div class="topic-tip">
+                        <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                        <h4>Use strong passwords</h4>
+                        <p>Passwords should be long, complex, and avoid common words. See further reading for tips.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Section: Further reading ─── -->
+            <section class="topic-section" id="further-reading">
+                <h2><i class="fas fa-book-open" aria-hidden="true"></i> Further Reading</h2>
+                <ul class="topic-links-list">
+                    <li>
+                        <a href="https://www.ncsc.gov.uk/collection/phishing-scams" target="_blank" rel="noopener noreferrer">
+                            <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                            [NCSC Phishing Guidance]
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://www.ncsc.gov.uk/collection/top-tips-for-staying-secure-online/password-managers" target="_blank" rel="noopener noreferrer">
+                            <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                            [NCSC Password Management Guidance]
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="https://www.gov.uk/report-suspicious-emails-websites-phishing" target="_blank" rel="noopener noreferrer">
+                            <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                            [Avoid & Report Scams - gov.uk]
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="https://unshorten.it/" target="_blank" rel="noopener noreferrer">
+                            <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                            [Unshorten.it!]
+                        </a>
+                    </li>
+                </ul>
+            </section>
+
+        </article>
+
+        <!-- CTA -->
+        <div class="topic-cta">
+            <p>Spotted a phishing attempt? Help protect others by reporting it.</p>
+            <a href="../report.html" class="btn btn-submit">
+                <i class="fas fa-flag" aria-hidden="true"></i> Submit a Report
+            </a>
+            <a href="../learn.html" class="btn btn-reset">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Learn
+            </a>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <a href="../privacy.html">Privacy Policy</a>
+            <span aria-hidden="true">|</span>
+            <a href="https://github.com/ScamGuard-App/scamguard-main" target="_blank" rel="noopener noreferrer">Source Code</a>
+            <span aria-hidden="true">|</span>
+            <span class="site-footer-copy">ScamGuard, 2026</span>
+        </div>
+    </footer>
+
+    <script src="../js/starfield.js"></script>
+    <script src="../js/accountAccessibility.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="../js/supabase.public.js?v=20260311"></script>
+    <script type="module" src="../js/nav.js?v=20260309"></script>
+</body>
+</html>
