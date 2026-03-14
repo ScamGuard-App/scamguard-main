@@ -985,10 +985,22 @@ app.get('/admin/ai-diagnostics', adminApiRateLimit, requireAdmin, async (req, re
 app.get('/admin/security-posture', adminApiRateLimit, requireAdmin, async (req, res) => {
     try {
         const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
-        const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-        const hasAnonKey = Boolean(process.env.SUPABASE_ANON_KEY);
-        const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL);
+        const supabaseUrl = String(
+            process.env.SUPABASE_URL
+            || process.env.SUPABASE_PROJECT_URL
+            || process.env.NEXT_PUBLIC_SUPABASE_URL
+            || process.env.VITE_SUPABASE_URL
+            || ''
+        ).trim();
+        const hasServiceRole = Boolean(String(
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+            || process.env.SUPABASE_SERVICE_KEY
+            || ''
+        ).trim());
+        const hasSupabaseUrl = Boolean(supabaseUrl);
         const hasBackendSupabaseConfig = hasServiceRole && hasSupabaseUrl;
+        // Some hosting providers mask or map secrets; keep this check capability-based as a fallback.
+        const hasSupabaseClientRuntime = Boolean(supabase?.from) && Boolean(supabase?.auth);
         const corsUsesEnvAllowlist = configuredAllowedOrigins.length > 0;
         const hasWildcardCors = allowedOrigins.includes('*');
 
@@ -1045,8 +1057,9 @@ app.get('/admin/security-posture', adminApiRateLimit, requireAdmin, async (req, 
             const probe = encodeURIComponent("' OR '1'='1");
             const response = await safeFetch(`/analysis-status/${probe}`);
             const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-            // Probe should never trigger a server error regardless of path payload.
-            return response.status < 500 && contentType.includes('application/json');
+            const clientRejected = response.status >= 400 && response.status < 500;
+            // Probe should never trigger a server error. 4xx rejection is expected and safe.
+            return response.status < 500 && (contentType.includes('application/json') || clientRejected);
         }
 
         async function runXssProbe() {
@@ -1119,12 +1132,12 @@ app.get('/admin/security-posture', adminApiRateLimit, requireAdmin, async (req, 
             {
                 id: 'supabase-runtime-config',
                 title: 'Supabase Runtime Config Present',
-                status: hasBackendSupabaseConfig ? 'pass' : 'fail',
+                status: (hasBackendSupabaseConfig || (hasServiceRole && hasSupabaseClientRuntime)) ? 'pass' : 'fail',
                 details: hasBackendSupabaseConfig
-                    ? (hasAnonKey
-                        ? 'Backend SUPABASE_URL + service-role config is present; ANON key also present.'
-                        : 'Backend SUPABASE_URL + service-role config is present; ANON key is not required server-side.')
-                    : 'Missing backend SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.',
+                    ? 'Backend Supabase URL + service-role configuration is present (values may be masked in secret managers).'
+                    : (hasServiceRole && hasSupabaseClientRuntime
+                        ? 'Service-role and initialized Supabase client runtime detected; URL may be injected or redacted outside plain env reads.'
+                        : 'Missing backend Supabase runtime config (service-role key and URL).'),
             },
             {
                 id: 'xss-probe',
