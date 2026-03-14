@@ -1,13 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap');
 
-/*
-  Modern 'glassmorphic' redesign:
-  - translucent cards with backdrop-filter blur
-  - dark gradient background
-  - accent color #c41c3b persists for branding
-  - cleaner typography and spacing
-  - added animations and glow effects
-*/
+/* Global values/colours */
 :root {
     --accent: #60aedb;
     --font-family-base: "Work Sans", sans-serif;
@@ -131,7 +124,7 @@ body > * {
     box-shadow: var(--stars-large, 300px 300px #fff);
 }
 
-/* NAVBAR */
+/* Navbarr */
 nav {
     display: flex;
     align-items: center;
@@ -196,7 +189,7 @@ nav .logo { margin-right: 12px; }
     width: 100%;
 }
 
-/* COMMON GLASS CARD */
+/* Main glass card design */
 .glass-card {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -211,7 +204,7 @@ nav .logo { margin-right: 12px; }
     box-shadow: 0 16px 48px var(--shadow);
 }
 
-/* dashboard cards */
+/* Dashboard cards */
 .content {
     flex: 1;
     padding: 2rem;
@@ -289,7 +282,7 @@ nav .logo { margin-right: 12px; }
     line-height: 1.15;
 }
 
-/* recent scams section */
+/* Recent scams section */
 .recent-scams {
     margin-top: 3rem;
 }
@@ -359,6 +352,8 @@ nav .logo { margin-right: 12px; }
     word-break: break-word;
     text-align: right;
 }
+
+
 
 /* Learn Page Styles */
 .learn-container {
@@ -515,15 +510,15 @@ nav .logo { margin-right: 12px; }
     margin-left: 10px;
 }
 
-/* Report Page Styles */
 
+
+/* Report Page Styles */
 .report-container {
     max-width: 800px;
     margin: 0 auto;
     padding: 40px 20px;
 }
 
-/* Reports Page Styles */
 .reports-table {
     width: 100%;
     border-collapse: collapse;
@@ -690,6 +685,8 @@ nav .logo { margin-right: 12px; }
     font-size: 12px;
 }
 
+
+
 /* Modal Styles */
 .modal {
     display: flex;
@@ -744,6 +741,8 @@ nav .logo { margin-right: 12px; }
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding-bottom: 16px;
 }
+
+
 
 /* Admin page styles */
 .admin-dashboard {
@@ -980,6 +979,8 @@ nav .logo { margin-right: 12px; }
     border-left: 3px solid rgba(239, 68, 68, 0.62);
 }
 
+
+
 /* Privacy policy page */
 .policy-container {
     max-width: 980px;
@@ -1081,6 +1082,8 @@ nav .logo { margin-right: 12px; }
 .policy-toc a:hover {
     color: #bfdbfe;
 }
+
+
 
 /* Global footer */
 .site-footer {
@@ -1254,12 +1257,10 @@ nav .logo { margin-right: 12px; }
     font-style: italic;
 }
 
-/* Make main container wider */
 .report-container {
     max-width: 1400px !important;
 }
 
-/* Increase table padding and font sizes */
 .reports-table th,
 .reports-table td {
     padding: 16px 14px !important;
@@ -1269,7 +1270,6 @@ nav .logo { margin-right: 12px; }
 .reports-table th {
     font-size: 13px !important;
 }
-
 
 .report-container h1 {
     text-align: center;
@@ -1351,6 +1351,8 @@ nav .logo { margin-right: 12px; }
     cursor: pointer;
     transition: all 0.3s ease;
 }
+
+
 
 /* Authentication page styles */
 .auth-container {
@@ -1455,7 +1457,9 @@ html[data-a11y-reduce-motion] *::after {
     border-left: 4px solid var(--accent);
 }
 
-/* utility helper */
+
+
+/* Utility helper styles */
 .hidden {
     display: none !important;
 }
@@ -1473,7 +1477,7 @@ html[data-a11y-reduce-motion] *::after {
 .auth-error {
     text-align: center;
     margin-bottom: 20px;
-    color: #f87171; /* red-400 */
+    color: #f87171;
 }
 
 .file-upload-area:hover {
@@ -1653,10 +1657,9 @@ html[data-a11y-reduce-motion] *::after {
     margin-right: 8px;
 }
 
-/* --------------------------------------------------
-   LLM Analysis Display (merged from analysis.css)
-   -------------------------------------------------- */
 
+
+/* AI Analysis Modal Styles */
 .analysis-loading {
     display: flex;
     flex-direction: column;
@@ -1900,10 +1903,9 @@ html[data-a11y-reduce-motion] *::after {
     }
 }
 
-/* --------------------------------------------------
-   Topic / Learn article pages  (public/topics/*.html)
-   -------------------------------------------------- */
 
+
+/* Topic page styles */
 .topic-container {
     max-width: 860px;
     margin: 0 auto;
@@ -1911,7 +1913,6 @@ html[data-a11y-reduce-motion] *::after {
     animation: fadeIn 0.4s ease;
 }
 
-/* Breadcrumb */
 .topic-breadcrumb {
     font-size: 0.9rem;
     color: var(--text-secondary);
@@ -1932,7 +1933,6 @@ html[data-a11y-reduce-motion] *::after {
     color: var(--text-secondary);
 }
 
-/* Hero */
 .topic-hero {
     display: flex;
     align-items: center;
@@ -1964,7 +1964,6 @@ html[data-a11y-reduce-motion] *::after {
     margin: 0;
 }
 
-/* Main article glass card */
 .topic-article {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -1975,7 +1974,6 @@ html[data-a11y-reduce-motion] *::after {
     gap: 0;
 }
 
-/* Sections within the article */
 .topic-section {
     padding: 1.75rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -2017,7 +2015,6 @@ html[data-a11y-reduce-motion] *::after {
     margin-bottom: 0;
 }
 
-/* Figures / image slots */
 .topic-figure {
     margin: 1.5rem 0 0.5rem;
     border-radius: 0.75rem;
@@ -2036,7 +2033,6 @@ html[data-a11y-reduce-motion] *::after {
     background: rgba(255, 255, 255, 0.04);
 }
 
-/* Show a dashed placeholder when the image src is missing/broken */
 .topic-img[src$=".png"]:not([src^="data"]),
 .topic-img[src$=".jpg"]:not([src^="data"]),
 .topic-img[src$=".webp"]:not([src^="data"]) {
@@ -2058,7 +2054,6 @@ html[data-a11y-reduce-motion] *::after {
     font-style: italic;
 }
 
-/* Warning / callout box */
 .topic-warning-box {
     background: rgba(196, 28, 59, 0.1);
     border: 1px solid rgba(196, 28, 59, 0.35);
@@ -2094,7 +2089,6 @@ html[data-a11y-reduce-motion] *::after {
     margin-bottom: 0.35rem;
 }
 
-/* Numbered steps */
 .topic-steps {
     display: flex;
     flex-direction: column;
@@ -2140,7 +2134,6 @@ html[data-a11y-reduce-motion] *::after {
     line-height: 1.6;
 }
 
-/* Tip cards grid */
 .topic-tip-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -2182,7 +2175,6 @@ html[data-a11y-reduce-motion] *::after {
     margin: 0;
 }
 
-/* Further reading links */
 .topic-links-list {
     list-style: none;
     padding: 0;
@@ -2207,7 +2199,6 @@ html[data-a11y-reduce-motion] *::after {
     text-decoration: underline;
 }
 
-/* CTA strip at page bottom */
 .topic-cta {
     margin-top: 2.5rem;
     background: var(--glass-bg);
@@ -2237,7 +2228,6 @@ html[data-a11y-reduce-motion] *::after {
     font-size: 0.9rem;
 }
 
-/* Responsive */
 @media (max-width: 640px) {
     .topic-hero {
         flex-direction: column;

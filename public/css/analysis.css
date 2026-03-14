@@ -1,6 +1,0 @@
-/*
-  Deprecated: analysis styles were merged into style.css for centralized theming.
-  Keep this import as a compatibility shim for any legacy pages that still load
-  analysis.css directly.
-*/
-@import url('./style.css');
